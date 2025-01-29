@@ -1,103 +1,148 @@
 ﻿using System;
-using System.Numerics;
 
 namespace SimPhys.Entities
 {
     public class Circle : Entity
     {
         public float Radius { get; set; }
-        
-        public override bool Intersects(Entity other)
+
+        public override bool CheckCollision(Entity other, float deltaTime, out CollisionManifold manifold)
         {
-            if (other is Circle circle)
+            manifold = new CollisionManifold();
+            if (other is Circle otherCircle)
             {
-                float distanceSquared = (circle.Position - this.Position).LengthSquared();
-                float radiusSum = this.Radius + circle.Radius;
-                return distanceSquared < (radiusSum * radiusSum);
+                return CheckCircleCollision(otherCircle, deltaTime, ref manifold);
             }
-            else if (other is Rectangle rect)
+
+            if (other is Rectangle rect)
             {
-                // Convert circle center to rectangle's local space
-                float cosTheta = MathF.Cos(-rect.Rotation);
-                float sinTheta = MathF.Sin(-rect.Rotation);
-        
-                Vector2 localCirclePos = new Vector2(
-                    cosTheta * (this.Position.X - rect.Position.X) - sinTheta * (this.Position.Y - rect.Position.Y),
-                    sinTheta * (this.Position.X - rect.Position.X) + cosTheta * (this.Position.Y - rect.Position.Y)
-                );
-
-                // Find the closest point on the axis-aligned rectangle
-                float closestX = Math.Clamp(localCirclePos.X, -rect.Width / 2, rect.Width / 2);
-                float closestY = Math.Clamp(localCirclePos.Y, -rect.Height / 2, rect.Height / 2);
-        
-                // Compute the distance between this closest point and the circle’s center in local space
-                float distanceX = localCirclePos.X - closestX;
-                float distanceY = localCirclePos.Y - closestY;
-                float distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
-
-                // If the distance is less than the circle’s radius, they collide
-                return distanceSquared < (this.Radius * this.Radius);
+                return CheckRectangleCollision(rect, deltaTime, ref manifold);
             }
 
             return false;
         }
 
-        /*public void ResolveBorderCollision(Vector2 boxSize)
+        private bool CheckCircleCollision(Circle other, float deltaTime, ref CollisionManifold manifold)
         {
-            var targetPos = Position + Velocity;
+            Vector2 deltaP = other.Position - Position;
+            Vector2 deltaV = other.Velocity - Velocity;
+            float radiusSum = Radius + other.Radius;
 
-            if (targetPos.x >= boxSize.x - Radius) // Right boundary
+            float a = deltaV.LengthSquared();
+            if (Math.Abs(a) < float.Epsilon)
             {
-                float t = (boxSize.x - Radius - Position.x) / Velocity.x;
-                float intersectionY = Position.y + Velocity.y * t;
-                targetPos = new Vector2(boxSize.x - Radius, intersectionY);
-                Velocity = new Vector2(-Velocity.x, Velocity.y);
-                targetPos += Velocity * (1 - t);
-                Position = targetPos;
-                
-                // Call actions
-                OnBorderCollision?.Invoke();
+                float distanceSq = deltaP.LengthSquared();
+                if (distanceSq > radiusSum * radiusSum) return false;
+
+                manifold.EntityA = this;
+                manifold.EntityB = other;
+                manifold.Normal = deltaP.Normalized();
+                manifold.Depth = radiusSum - deltaP.Length();
+                manifold.Time = 0;
+                return true;
             }
-            else if (targetPos.x <= -boxSize.x + Radius) // Left boundary
+
+            float b = 2 * Vector2.Dot(deltaP, deltaV);
+            float c = deltaP.LengthSquared() - radiusSum * radiusSum;
+
+            float discriminant = b * b - 4 * a * c;
+            if (discriminant < 0) return false;
+
+            float sqrtD = (float)Math.Sqrt(discriminant);
+            float t1 = (-b - sqrtD) / (2 * a);
+            float t2 = (-b + sqrtD) / (2 * a);
+            float t = Math.Min(t1, t2);
+
+            if (t < 0 || t > deltaTime) return false;
+
+            Vector2 futureA = Position + Velocity * t;
+            Vector2 futureB = other.Position + other.Velocity * t;
+            Vector2 normal = (futureB - futureA).Normalized();
+
+            manifold.EntityA = this;
+            manifold.EntityB = other;
+            manifold.Normal = normal;
+            manifold.Depth = radiusSum - (futureB - futureA).Length();
+            manifold.Time = t;
+            return true;
+        }
+
+        public bool CheckRectangleCollision(Rectangle rect, float deltaTime, ref CollisionManifold manifold)
+        {
+            Vector2 rectCenter = rect.Position + new Vector2(rect.Width / 2, rect.Height / 2);
+            Vector2 closestPoint = new Vector2(
+                Math.Clamp(Position.X, rect.Position.X, rect.Position.X + rect.Width),
+                Math.Clamp(Position.Y, rect.Position.Y, rect.Position.Y + rect.Height)
+            );
+
+            Vector2 delta = Position - closestPoint;
+            float distanceSq = delta.LengthSquared();
+            float radius = Radius + 0.001f; // Small buffer
+
+            // Static collision check
+            if (distanceSq < radius * radius)
             {
-                float t = (Position.x + boxSize.x - Radius) / -Velocity.x;
-                float intersectionY = Position.y + Velocity.y * t;
-                targetPos = new Vector2(-boxSize.x + Radius, intersectionY);
-                Velocity = new Vector2(-Velocity.x, Velocity.y);
-                targetPos += Velocity * (1 - t);
-                Position = targetPos;
-                
-                // Call actions
-                OnBorderCollision?.Invoke();
+                manifold.EntityA = this;
+                manifold.EntityB = rect;
+                manifold.Normal = delta.Normalized();
+                manifold.Depth = radius - (float)Math.Sqrt(distanceSq);
+                manifold.Time = 0;
+                return true;
             }
-            else if (targetPos.y >= boxSize.y - Radius) // Top boundary
+
+            // Dynamic collision check
+            Vector2 relVelocity = Velocity - rect.Velocity;
+            Vector2 rayEnd = Position + relVelocity * deltaTime;
+            Vector2 rayDir = rayEnd - Position;
+
+            // Handle zero velocity case
+            if (rayDir.LengthSquared() < float.Epsilon) return false;
+
+            float t = 0;
+            Vector2 normal = Vector2.Zero;
+            float nearestT = float.MaxValue;
+
+            // Check against rectangle sides
+            CheckAxis(rect.Position.X, rect.Position.X + rect.Width, Position.X, rayDir.X, Position.Y, rayDir.Y,
+                rect.Position.Y, rect.Position.Y + rect.Height, ref nearestT, ref normal, 0);
+            CheckAxis(rect.Position.Y, rect.Position.Y + rect.Height, Position.Y, rayDir.Y, Position.X, rayDir.X,
+                rect.Position.X, rect.Position.X + rect.Width, ref nearestT, ref normal, 1);
+
+            if (nearestT <= deltaTime)
             {
-                float t = (boxSize.y - Radius - Position.y) / Velocity.y;
-                float intersectionX = Position.x + Velocity.x * t;
-                targetPos = new Vector2(intersectionX, boxSize.y - Radius);
-                Velocity = new Vector2(Velocity.x, -Velocity.y);
-                targetPos += Velocity * (1 - t);
-                Position = targetPos;
-                
-                // Call actions
-                OnBorderCollision?.Invoke();
+                manifold.EntityA = this;
+                manifold.EntityB = rect;
+                manifold.Normal = normal;
+                manifold.Depth = Radius - (Position + relVelocity * nearestT - closestPoint).Length();
+                manifold.Time = nearestT;
+                return true;
             }
-            else if (targetPos.y <= -boxSize.y + Radius) // Bottom boundary
+
+            return false;
+        }
+
+        private void CheckAxis(float rectMin, float rectMax, float pos, float dir, float otherPos, float otherDir,
+            float otherMin, float otherMax, ref float nearestT, ref Vector2 normal, int axis)
+        {
+            if (Math.Abs(dir) < float.Epsilon) return;
+
+            float tEnter = (rectMin - pos - Radius) / dir;
+            float tExit = (rectMax - pos + Radius) / dir;
+
+            if (tEnter > tExit) (tEnter, tExit) = (tExit, tEnter);
+
+            tEnter = Math.Max(tEnter, 0);
+            tExit = Math.Min(tExit, 1);
+
+            if (tEnter < nearestT)
             {
-                float t = (Position.y + boxSize.y - Radius) / -Velocity.y;
-                float intersectionX = Position.x + Velocity.x * t;
-                targetPos = new Vector2(intersectionX, -boxSize.y + Radius);
-                Velocity = new Vector2(Velocity.x, -Velocity.y);
-                targetPos += Velocity * (1 - t);
-                Position = targetPos;
-                
-                // Call actions
-                OnBorderCollision?.Invoke();
+                float intersectOther = otherPos + otherDir * tEnter;
+                if (intersectOther >= otherMin && intersectOther <= otherMax)
+                {
+                    nearestT = tEnter;
+                    normal = axis == 0 ? new Vector2(-Math.Sign(dir), 0) : new Vector2(0, -Math.Sign(dir));
+                }
             }
-            else
-            {
-                Position = targetPos;
-            }
-        }*/
+        }
     }
 }

@@ -11,9 +11,6 @@ namespace SimPhys.Entities
         public float Mass { get; set; }
         public float InverseMass => Mass <= 0 ? 0 : 1f / Mass;
 
-        public abstract bool Intersects(Entity other); 
-        
-        public Action OnBorderCollision { get; set; }
-        public Action<Entity> OnEntityCollision { get; set; }
+        public abstract bool CheckCollision(Entity other, float deltaTime, out CollisionManifold manifold);
     }
 }

@@ -3,10 +3,12 @@ using SimPhys;
 using SimPhys.Entities;
 using UnityEngine;
 using Random = UnityEngine.Random;
+using Vector2 = SimPhys.Vector2;
 
 public class SimulationView : MonoBehaviour
 {
     [SerializeField] private GameObject circlePrefab, squarePrefab;
+    [SerializeField] private int simulationsCount = 1;
     private List<Transform> _entityViews;
 
     private SimulationSpace[] _simulators;
@@ -15,13 +17,13 @@ public class SimulationView : MonoBehaviour
     private void Start()
     {
         //World settings
-        SpaceSettings.Friction = new System.Numerics.Vector2(0.9f, 0.9f);
-        SpaceSettings.SpaceSize = new System.Numerics.Vector2(20, 20);
+        SpaceSettings.Friction = new Vector2(0.9f, 0.9f);
+        SpaceSettings.SpaceSize = new Vector2(20, 20);
 
         _entityViews = new List<Transform>();
         
-        _simulators = new SimulationSpace[100];
-        for (int i = 0; i < 100; i++)
+        _simulators = new SimulationSpace[simulationsCount];
+        for (int i = 0; i < simulationsCount; i++)
         {
             _simulators[i] = new SimulationSpace();
         }
@@ -31,9 +33,9 @@ public class SimulationView : MonoBehaviour
             var entityView = Instantiate(circlePrefab);
             _entityViews.Add(entityView.transform);
 
-            var pos = new System.Numerics.Vector2(Random.Range(-10f, 10f), Random.Range(-10f, 10f));
-            var rot = new System.Numerics.Vector2(Random.Range(-1f, 1f), Random.Range(-1f, 1f));
-            for (int s = 0; s < 100; s++)
+            var pos = new Vector2(Random.Range(-10f, 10f), Random.Range(-10f, 10f));
+            var rot = new Vector2(Random.Range(-1f, 1f), Random.Range(-1f, 1f));
+            for (int s = 0; s < simulationsCount; s++)
             {
                 var entity = new Circle
                 {
@@ -51,13 +53,13 @@ public class SimulationView : MonoBehaviour
         //add box
         var sq1 = Instantiate(squarePrefab);
         _entityViews.Add(sq1.transform);
-        var poss = new System.Numerics.Vector2(Random.Range(-10f, 10f), Random.Range(-10f, 10f)); 
-        for (int s = 0; s < 100; s++)
+        var poss = new Vector2(Random.Range(-10f, 10f), Random.Range(-10f, 10f)); 
+        for (int s = 0; s < simulationsCount; s++)
         {
             var sq1E = new Rectangle
             {
                 Position = poss,
-                Velocity = System.Numerics.Vector2.Zero,
+                Velocity = Vector2.Zero,
                 Width = 2,
                 Height = 1,
                 Mass = 1,
@@ -71,10 +73,11 @@ public class SimulationView : MonoBehaviour
     {
         for (int i = 0; i < _simulators.Length; i++)
         {
-            _simulators[i].SimulateStep();
+            _simulators[i].SimulateStep(1);
         }
         for (int j = 0; j < _simulators[_currentSim].Entities.Count; j++)
         {
+            print(_simulators[_currentSim].Entities[j].Position);
             _entityViews[j].position = new Vector3(_simulators[_currentSim].Entities[j].Position.X, _simulators[_currentSim].Entities[j].Position.Y);
 
             if (_simulators[_currentSim].Entities[j] is Rectangle r)
@@ -86,10 +89,10 @@ public class SimulationView : MonoBehaviour
 
     public void AddVelocity()
     {
-        var velocities = new System.Numerics.Vector2[10];
-        for (int i = 0; i < 10; i++)
+        var velocities = new Vector2[_simulators[_currentSim].Entities.Count];
+        for (int i = 0; i < _simulators[_currentSim].Entities.Count; i++)
         {
-            velocities[i] = new System.Numerics.Vector2(Random.Range(-2f, 2f), Random.Range(-2f, 2f));
+            velocities[i] = new Vector2(Random.Range(-2f, 2f), Random.Range(-2f, 2f));
         }
         foreach (var simulator in _simulators)
         {
@@ -140,7 +143,7 @@ public class SimulationView : MonoBehaviour
                 for (int i = 0; i < _simulators.Length; i++)
                 {
                     var velocity = (_selectionMousePos - mouse) * 0.01f;
-                    _simulators[i].Entities[_selectedEntity].Velocity = new System.Numerics.Vector2(velocity.x, velocity.y);
+                    _simulators[i].Entities[_selectedEntity].Velocity = new Vector2(velocity.x, velocity.y);
                 }
             }
         }
