@@ -3,7 +3,7 @@ using SimPhys;
 using SimPhys.Entities;
 using UnityEngine;
 using Random = UnityEngine.Random;
-using Vector2 = SimPhys.Vector2;
+using Vector2 = System.Numerics.Vector2;
 
 public class SimulationView : MonoBehaviour
 {
@@ -17,7 +17,7 @@ public class SimulationView : MonoBehaviour
     private void Start()
     {
         //World settings
-        SpaceSettings.Friction = new Vector2(0.9f, 0.9f);
+        SpaceSettings.Friction = 0.98f;
         SpaceSettings.SpaceSize = new Vector2(20, 20);
 
         _entityViews = new List<Transform>();
@@ -50,22 +50,50 @@ public class SimulationView : MonoBehaviour
             }
         }
         
-        //add box
-        var sq1 = Instantiate(squarePrefab);
-        _entityViews.Add(sq1.transform);
-        var poss = new Vector2(Random.Range(-10f, 10f), Random.Range(-10f, 10f)); 
+        //add walls
+        _entityViews.Add(Instantiate(squarePrefab).transform);
+        _entityViews.Add(Instantiate(squarePrefab).transform);
+        _entityViews.Add(Instantiate(squarePrefab).transform);
+        _entityViews.Add(Instantiate(squarePrefab).transform);
+        
         for (int s = 0; s < simulationsCount; s++)
         {
-            var sq1E = new Rectangle
+            _simulators[s].AddEntity(new Rectangle
             {
-                Position = poss,
+                Position = new Vector2(10, 0),
                 Velocity = Vector2.Zero,
-                Width = 2,
-                Height = 1,
-                Mass = 1,
+                Width = 1,
+                Height = 20,
+                Mass = 100,
                 Bounciness = 1
-            };
-            _simulators[s].AddEntity(sq1E);
+            });
+            _simulators[s].AddEntity(new Rectangle
+            {
+                Position = new Vector2(-10, 0),
+                Velocity = Vector2.Zero,
+                Width = 1,
+                Height = 20,
+                Mass = 100,
+                Bounciness = 1
+            });
+            _simulators[s].AddEntity(new Rectangle
+            {
+                Position = new Vector2(0, 10),
+                Velocity = Vector2.Zero,
+                Width = 20,
+                Height = 1,
+                Mass = 100,
+                Bounciness = 1
+            });
+            _simulators[s].AddEntity(new Rectangle
+            {
+                Position = new Vector2(0, -10),
+                Velocity = Vector2.Zero,
+                Width = 20,
+                Height = 1,
+                Mass = 100,
+                Bounciness = 1
+            });
         }
     }
 
@@ -73,7 +101,7 @@ public class SimulationView : MonoBehaviour
     {
         for (int i = 0; i < _simulators.Length; i++)
         {
-            _simulators[i].SimulateStep(1);
+            _simulators[i].SimulateStep();
         }
         for (int j = 0; j < _simulators[_currentSim].Entities.Count; j++)
         {

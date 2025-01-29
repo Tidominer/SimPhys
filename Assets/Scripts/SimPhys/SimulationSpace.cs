@@ -1,82 +1,41 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using SimPhys.Entities;
-using UnityEngine;
 
 namespace SimPhys
 {
     public class SimulationSpace
     {
         public List<Entity> Entities { get; } = new List<Entity>();
-        public float Friction { get; set; } = 0.1f;
 
         public void AddEntity(Entity entity) => Entities.Add(entity);
 
-        public void SimulateStep(float deltaTime)
+        public void SimulateStep()
         {
-            const int maxIterations = 5;
-            float timeRemaining = deltaTime;
+            float maxSpeed = 10.0f;
+            int subSteps = (int)Math.Ceiling(Entities.Max(e => e.Velocity.Length()) / maxSpeed);
+            subSteps = Math.Max(1, subSteps);
     
-            for (int i = 0; i < maxIterations && timeRemaining > 0; i++)
+            float subStepFriction = (float)Math.Pow(SpaceSettings.Friction, 1.0f / subSteps);
+
+            for (int step = 0; step < subSteps; step++)
             {
-                CollisionManifold earliest = FindEarliestCollision(timeRemaining);
-                float stepTime = earliest?.Time ?? timeRemaining;
-
-                MoveEntities(stepTime);
-                ApplyFriction(stepTime);
-                timeRemaining -= stepTime;
-
-                if (earliest != null)
+                foreach (var entity in Entities)
                 {
-                    CollisionResolver.Resolve(earliest);
-                    // Re-check collisions after resolution
-                    timeRemaining += stepTime * 0.1f; // Add some time back for micro-collisions
+                    entity.Velocity *= subStepFriction;  // Apply friction per substep
+                    entity.Position += entity.Velocity / subSteps;
+                }
+
+                for (int i = 0; i < Entities.Count; i++)
+                {
+                    for (int j = i + 1; j < Entities.Count; j++)
+                    {
+                        if (Entities[i].Intersects(Entities[j], out var data))
+                            Entities[i].ResolveCollision(Entities[j], data);
+                    }
                 }
             }
-
-            // Clamp positions to valid numbers
-            foreach (var entity in Entities)
-            {
-                if (float.IsNaN(entity.Position.X)) entity.Position = new Vector2(0, 0);
-                if (float.IsNaN(entity.Position.Y)) entity.Position = new Vector2(0, 0);
-            }
-        }
-
-        private CollisionManifold FindEarliestCollision(float deltaTime)
-        {
-            CollisionManifold earliest = null;
-            float minTime = deltaTime;
-
-            foreach (var pair in GetEntityPairs())
-            {
-                if (pair.Item1.CheckCollision(pair.Item2, deltaTime, out var manifold) &&
-                    manifold.Time < minTime)
-                {
-                    minTime = manifold.Time;
-                    earliest = manifold;
-                }
-            }
-            return earliest;
-        }
-
-        private IEnumerable<Tuple<Entity, Entity>> GetEntityPairs()
-        {
-            for (int i = 0; i < Entities.Count; i++)
-            for (int j = i + 1; j < Entities.Count; j++)
-                yield return Tuple.Create(Entities[i], Entities[j]);
-        }
-
-        private void MoveEntities(float deltaTime)
-        {
-            foreach (var entity in Entities)
-                entity.Position += entity.Velocity * deltaTime;
-        }
-
-        private void ApplyFriction(float deltaTime)
-        {
-            float frictionFactor = (float)Math.Pow(1 - Friction, deltaTime);
-            foreach (var entity in Entities)
-                entity.Velocity *= frictionFactor;
         }
     }
 }

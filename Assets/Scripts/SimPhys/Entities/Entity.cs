@@ -1,4 +1,3 @@
-using System;
 using System.Numerics;
 
 namespace SimPhys.Entities
@@ -11,6 +10,7 @@ namespace SimPhys.Entities
         public float Mass { get; set; }
         public float InverseMass => Mass <= 0 ? 0 : 1f / Mass;
 
-        public abstract bool CheckCollision(Entity other, float deltaTime, out CollisionManifold manifold);
+        public abstract bool Intersects(Entity other, out CollisionData collisionData);
+        public abstract void ResolveCollision(Entity other, CollisionData collisionData);
     }
 }

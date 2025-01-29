@@ -4,7 +4,7 @@ namespace SimPhys
 {
     public abstract class SpaceSettings
     {
-        public static Vector2 Friction;
+        public static float Friction;
         public static Vector2 SpaceSize;
     }
 }
