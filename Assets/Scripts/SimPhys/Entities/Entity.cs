@@ -1,4 +1,7 @@
-using System.Numerics;
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using Vector2 = System.Numerics.Vector2;
 
 namespace SimPhys.Entities
 {
@@ -9,8 +12,36 @@ namespace SimPhys.Entities
         public float Bounciness { get; set; }
         public float Mass { get; set; }
         public float InverseMass => Mass <= 0 ? 0 : 1f / Mass;
+        public bool IsFrozen { get; set; }
+        public bool IsTrigger { get; set; }
+
+        public Action<Entity> OnCollisionEnter = delegate { };
+        public Action<Entity> OnCollisionStep = delegate { };
+        public Action<Entity> OnCollisionExit = delegate { };
 
         public abstract bool Intersects(Entity other, out CollisionData collisionData);
         public abstract void ResolveCollision(Entity other, CollisionData collisionData);
+        public abstract void ResolveBorderCollision(float minX, float maxX, float minY, float maxY);
+
+        public void Step()
+        {
+            foreach (var collision in currentStepCollisions)
+            {
+                if (!enteredCollisions.Contains(collision))
+                {
+                    enteredCollisions.Add(collision);
+                    OnCollisionEnter?.Invoke(collision);
+                }
+                else
+                {
+                    OnCollisionStep?.Invoke(collision);
+                }
+            }
+            
+            currentStepCollisions.Clear();
+        }
+        
+        protected List<Entity> currentStepCollisions = new();
+        protected List<Entity> enteredCollisions = new();
     }
 }

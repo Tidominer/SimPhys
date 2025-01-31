@@ -11,15 +11,22 @@ namespace SimPhys.Entities
         {
             collisionData = null;
 
-            if (other is Circle otherCircle)
+            var intersects = other switch
             {
-                return Intersects(otherCircle, out collisionData);
-            }else if (other is Rectangle otherRectangle)
+                Circle otherCircle => Intersects(otherCircle, out collisionData),
+                Rectangle otherRectangle => Intersects(otherRectangle, out collisionData),
+                _ => false
+            };
+
+            if (intersects)
+                currentStepCollisions.Add(other);
+            else if (enteredCollisions.Contains(other))
             {
-                return Intersects(otherRectangle, out collisionData);
+                OnCollisionExit?.Invoke(other);
+                enteredCollisions.Remove(other);
             }
 
-            return false;
+            return intersects;
         }
 
         public bool Intersects(Circle other, out CollisionData collisionData)
@@ -81,14 +88,13 @@ namespace SimPhys.Entities
             };
             return true;
         }
-
         public bool Intersects(Rectangle other, out CollisionData collisionData)
         {
             collisionData = null;
 
             Vector2 relativeVelocity = Velocity - other.Velocity;
             Vector2 circleStart = Position;
-            Vector2 circleEnd = circleStart + relativeVelocity;
+            //Vector2 circleEnd = circleStart + relativeVelocity;
             float radius = Radius;
 
             float expandedLeft = other.Position.X - other.Width / 2 - radius;
@@ -169,8 +175,14 @@ namespace SimPhys.Entities
 
         public void ResolveCollision(Circle other, CollisionData collisionData)
         {
+            if (IsTrigger || other.IsTrigger) return;
+            
             Vector2 normal = collisionData.Normal;
             float time = collisionData.Time;
+            
+            // Freeze System
+            var invMass = IsFrozen ? 0 : InverseMass;
+            var otherInvMass = other.IsFrozen ? 0 : other.InverseMass;
 
             // Save original state in case we need to revert
             Vector2 originalPos = Position;
@@ -195,12 +207,12 @@ namespace SimPhys.Entities
             // Calculate impulse (considering bounciness)
             float e = Math.Min(Bounciness, other.Bounciness);
             float j = -(1 + e) * velocityAlongNormal;
-            j /= (InverseMass + other.InverseMass);
+            j /= (invMass + otherInvMass);
 
             // Apply impulse
             Vector2 impulse = j * normal;
-            Velocity += impulse * InverseMass;
-            other.Velocity -= impulse * other.InverseMass;
+            Velocity += impulse * invMass;
+            other.Velocity -= impulse * otherInvMass;
 
             // Positional correction for static collisions
             if (collisionData.PenetrationDepth > 0)
@@ -208,18 +220,40 @@ namespace SimPhys.Entities
                 const float slop = 0.01f;
                 const float percent = 0.2f;
                 Vector2 correction = (Math.Max(collisionData.PenetrationDepth - slop, 0) /
-                                      (InverseMass + other.InverseMass)) * percent * normal;
-                Position += correction * InverseMass;
-                other.Position -= correction * other.InverseMass;
+                                      (invMass + otherInvMass)) * percent * normal;
+                Position += correction * invMass;
+                other.Position -= correction * otherInvMass;
             }
 
             // Apply remaining movement after collision
             float remainingTime = 1 - time;
             Position += Velocity * remainingTime;
             other.Position += other.Velocity * remainingTime;
+            
+            // Freeze system
+            if (IsFrozen)
+            {
+                Position = originalPos;
+                Velocity = Vector2.Zero;
+            }
+            if (other.IsFrozen)
+            {
+                other.Position = originalOtherPos;
+                other.Velocity = Vector2.Zero;
+            }
         }
         public void ResolveCollision(Rectangle other, CollisionData collisionData)
         {
+            if (IsTrigger || other.IsTrigger) return;
+            
+            // Save original state in case we need to revert
+            Vector2 originalPos = Position;
+            Vector2 originalOtherPos = other.Position;
+            
+            // Freeze System
+            var invMass = IsFrozen ? 0 : InverseMass;
+            var otherInvMass = other.IsFrozen ? 0 : other.InverseMass;
+            
             float t = collisionData.Time;
             Position += Velocity * t;
             other.Position += other.Velocity * t;
@@ -231,25 +265,64 @@ namespace SimPhys.Entities
                 return;
 
             float e = Math.Min(Bounciness, other.Bounciness);
-            float j = -(1 + e) * velocityAlongNormal / (InverseMass + other.InverseMass);
+            float j = -(1 + e) * velocityAlongNormal / (invMass + otherInvMass);
             Vector2 impulse = j * collisionData.Normal;
 
-            Velocity += impulse * InverseMass;
-            other.Velocity -= impulse * other.InverseMass;
+            Velocity += impulse * invMass;
+            other.Velocity -= impulse * otherInvMass;
 
             const float percent = 0.8f;
             const float slop = 0.01f;
             Vector2 correction = collisionData.Normal * 
                 Math.Max(collisionData.PenetrationDepth - slop, 0) / 
-                (InverseMass + other.InverseMass) * percent;
+                (invMass + otherInvMass) * percent;
 
-            Position += correction * InverseMass;
-            other.Position -= correction * other.InverseMass;
+            Position += correction * invMass;
+            other.Position -= correction * otherInvMass;
 
             float remainingTime = 1 - t;
             Position += Velocity * remainingTime;
             other.Position += other.Velocity * remainingTime;
+            
+            // Freeze system
+            if (IsFrozen)
+            {
+                Position = originalPos;
+                Velocity = Vector2.Zero;
+            }
+            if (other.IsFrozen)
+            {
+                other.Position = originalOtherPos;
+                other.Velocity = Vector2.Zero;
+            }
         }
+        public override void ResolveBorderCollision(float minX, float maxX, float minY, float maxY)
+        {
+            // Check if the circle is outside the boundaries and resolve accordingly
 
+            // Handle the X axis
+            if (Position.X - Radius < minX) // Colliding with the left wall
+            {
+                Position = new Vector2(minX + Radius, Position.Y);
+                Velocity = new Vector2(Math.Abs(Velocity.X) * Bounciness, Velocity.Y);
+            }
+            else if (Position.X + Radius > maxX) // Colliding with the right wall
+            {
+                Position = new Vector2(maxX - Radius, Position.Y);
+                Velocity = new Vector2(-Math.Abs(Velocity.X) * Bounciness, Velocity.Y);
+            }
+
+            // Handle the Y axis
+            if (Position.Y - Radius < minY) // Colliding with the bottom wall
+            {
+                Position = new Vector2(Position.X, minY + Radius);
+                Velocity = new Vector2(Velocity.X, Math.Abs(Velocity.Y) * Bounciness);
+            }
+            else if (Position.Y + Radius > maxY) // Colliding with the top wall
+            {
+                Position = new Vector2(Position.X, maxY - Radius);
+                Velocity = new Vector2(Velocity.X, -Math.Abs(Velocity.Y) * Bounciness);
+            }
+        }
     }
 }

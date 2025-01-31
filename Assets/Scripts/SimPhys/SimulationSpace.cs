@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using SimPhys.Entities;
+using System.Numerics;
 
 namespace SimPhys
 {
@@ -13,7 +14,9 @@ namespace SimPhys
 
         public void SimulateStep()
         {
-            float maxSpeed = 10.0f;
+            if (Entities.Count == 0) return;
+            
+            float maxSpeed = SpaceSettings.SubSteppingSpeed;
             int subSteps = (int)Math.Ceiling(Entities.Max(e => e.Velocity.Length()) / maxSpeed);
             subSteps = Math.Max(1, subSteps);
     
@@ -23,8 +26,15 @@ namespace SimPhys
             {
                 foreach (var entity in Entities)
                 {
+                    entity.Step();
+                    //Freeze system
+                    if (entity.IsFrozen) entity.Velocity = Vector2.Zero;
+                    if (entity.Velocity.Length() < 0.000001f) entity.Velocity = Vector2.Zero;
+                    
                     entity.Velocity *= subStepFriction;  // Apply friction per substep
                     entity.Position += entity.Velocity / subSteps;
+                    
+                    entity.ResolveBorderCollision(-SpaceSettings.SpaceSize.X, SpaceSettings.SpaceSize.X, -SpaceSettings.SpaceSize.Y, SpaceSettings.SpaceSize.Y);
                 }
 
                 for (int i = 0; i < Entities.Count; i++)
