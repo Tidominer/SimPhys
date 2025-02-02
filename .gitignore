@@ -70,3 +70,20 @@ crashlytics-build.properties
 # Temporary auto-generated Android Assets
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
+SimPhys/Entities.meta
+SimPhys/Entities/Circle.cs.meta
+SimPhys/Entities/Entity.cs.meta
+SimPhys/Entities/Rectangle.cs.meta
+SimPhys/Models.cs.meta
+SimPhys/SimulationSpace.cs.meta
+SimPhys/SpaceSettings.cs.meta
+SimPhys/Unity/SimPhysCircle.cs.meta
+SimPhys/Unity/SimPhysEntity.cs.meta
+SimPhys/Unity/SimPhysRectangle.cs.meta
+SimPhys/Unity/SimPhysSpace.cs.meta
+SimPhys/Unity.meta
+SimPhys.meta
+SimulationTest.cs
+SimulationTest.cs.meta
+ShootableEntities.cs.meta
+ShootableEntities.cs
