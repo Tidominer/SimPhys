@@ -21,18 +21,18 @@ namespace SimPhys.Unity
                 Velocity = Vector2.Zero,
                 Radius = radius,
                 IsFrozen = frozen,
-                IsTrigger = trigger
+                IsTrigger = trigger,
             };
             Entity = Circle;
         }
 
         private void Update()
         {
-            Transform.position = new Vector3(Circle.Position.X, Circle.Position.Y);
-            Circle.Bounciness = bounciness;
-            Circle.Mass = mass;
-            Circle.Radius = radius;
-            Circle.IsFrozen = frozen;
+            Transform.position = Circle.Position.ToUnityVector();
+            //Circle.Bounciness = bounciness;
+            //Circle.Mass = mass;
+            //Circle.Radius = radius;
+            //Circle.IsFrozen = frozen;
         }
 
         private void OnDrawGizmosSelected()

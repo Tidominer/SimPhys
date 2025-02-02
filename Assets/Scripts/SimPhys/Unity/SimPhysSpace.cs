@@ -16,10 +16,14 @@ namespace SimPhys.Unity
         private void Awake()
         {
             Instance = this;
-            SpaceSettings.SubSteppingSpeed = 0.1f;
-            SpaceSettings.SpaceSize = new Vector2(spaceSize.x, spaceSize.y);
+            var settings = new SpaceSettings()
+            {
+                SubSteppingSpeed = 0.1f,
+                SpaceSize = new Vector2(spaceSize.x, spaceSize.y),
+                Friction = spaceFriction
+            };
 
-            SimulationSpace = new SimulationSpace();
+            SimulationSpace = new SimulationSpace(settings);
         }
 
         public void AddEntity(Entity entity)
@@ -27,14 +31,19 @@ namespace SimPhys.Unity
             SimulationSpace.AddEntity(entity);
         }
 
-        private void Update()
+        public void RemoveEntity(Entity entity)
         {
-            SpaceSettings.Friction = spaceFriction;
+            SimulationSpace.RemoveEntity(entity);
         }
 
         private void FixedUpdate()
         {
             SimulationSpace.SimulateStep();
+        }
+
+        private void OnDrawGizmosSelected()
+        {
+            Gizmos.DrawWireCube(Vector3.zero, spaceSize*2);
         }
     }
 }

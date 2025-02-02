@@ -1,5 +1,4 @@
-﻿using System;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace SimPhys.Unity
 {
@@ -22,5 +21,8 @@ namespace SimPhys.Unity
         {
             SimPhysSpace.Instance.AddEntity(Entity);
         }
+
+        public void Disable() => SimPhysSpace.Instance.RemoveEntity(Entity);
+        public void Enable() => SimPhysSpace.Instance.AddEntity(Entity);
     }
 }

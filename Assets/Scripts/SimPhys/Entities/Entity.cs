@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
-using Vector2 = System.Numerics.Vector2;
+using System.Numerics;
 
 namespace SimPhys.Entities
 {
@@ -14,6 +13,7 @@ namespace SimPhys.Entities
         public float InverseMass => Mass <= 0 ? 0 : 1f / Mass;
         public bool IsFrozen { get; set; }
         public bool IsTrigger { get; set; }
+        
 
         public Action<Entity> OnCollisionEnter = delegate { };
         public Action<Entity> OnCollisionStep = delegate { };
@@ -41,7 +41,7 @@ namespace SimPhys.Entities
             currentStepCollisions.Clear();
         }
         
-        protected List<Entity> currentStepCollisions = new();
-        protected List<Entity> enteredCollisions = new();
+        public readonly List<Entity> currentStepCollisions = new List<Entity>();
+        public readonly List<Entity> enteredCollisions = new List<Entity>();
     }
 }

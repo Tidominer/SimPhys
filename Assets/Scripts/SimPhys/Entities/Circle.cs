@@ -19,7 +19,10 @@ namespace SimPhys.Entities
             };
 
             if (intersects)
+            {
                 currentStepCollisions.Add(other);
+                other.currentStepCollisions.Add(this);
+            }
             else if (enteredCollisions.Contains(other))
             {
                 OnCollisionExit?.Invoke(other);
@@ -141,10 +144,11 @@ namespace SimPhys.Entities
             Vector2 collisionPoint = circleStart + relativeVelocity * tCollision;
             Vector2 rectCenter = other.Position;
 
-            float closestX = Math.Clamp(collisionPoint.X, rectCenter.X - other.Width / 2,
-                rectCenter.X + other.Width / 2);
-            float closestY = Math.Clamp(collisionPoint.Y, rectCenter.Y - other.Height / 2,
-                rectCenter.Y + other.Height / 2);
+            float closestX = Math.Min(rectCenter.X + other.Width / 2, collisionPoint.X);
+            closestX = Math.Max(closestX, rectCenter.X - other.Width / 2);
+
+            float closestY = Math.Min(collisionPoint.Y, rectCenter.Y + other.Height / 2);
+            closestY = Math.Max(closestY, rectCenter.Y - other.Height / 2);
 
             Vector2 delta = collisionPoint - new Vector2(closestX, closestY);
             float distance = delta.Length();

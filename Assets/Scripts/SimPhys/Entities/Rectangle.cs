@@ -21,7 +21,10 @@ namespace SimPhys.Entities
             };
 
             if (intersects)
+            {
                 currentStepCollisions.Add(other);
+                other.currentStepCollisions.Add(this);
+            }
             else if (enteredCollisions.Contains(other))
             {
                 OnCollisionExit?.Invoke(other);
