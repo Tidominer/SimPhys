@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Linq;
-using System.Numerics;
 
 namespace SimPhys.Entities
 {
     public class Rectangle : Entity
     {
-        public float Width { get; set; }
-        public float Height { get; set; }
+        public decimal Width { get; set; }
+        public decimal Height { get; set; }
 
         public override bool Intersects(Entity other, out CollisionData collisionData)
         {
@@ -48,21 +47,21 @@ namespace SimPhys.Entities
             Vector2 otherCenter = other.Position;
 
             // Calculate half dimensions
-            float hwA = Width / 2;
-            float hhA = Height / 2;
-            float hwB = other.Width / 2;
-            float hhB = other.Height / 2;
+            decimal hwA = Width / 2;
+            decimal hhA = Height / 2;
+            decimal hwB = other.Width / 2;
+            decimal hhB = other.Height / 2;
 
             // Current bounding coordinates
-            float leftA = thisCenter.X - hwA;
-            float rightA = thisCenter.X + hwA;
-            float topA = thisCenter.Y - hhA;
-            float bottomA = thisCenter.Y + hhA;
+            decimal leftA = thisCenter.X - hwA;
+            decimal rightA = thisCenter.X + hwA;
+            decimal topA = thisCenter.Y - hhA;
+            decimal bottomA = thisCenter.Y + hhA;
 
-            float leftB = otherCenter.X - hwB;
-            float rightB = otherCenter.X + hwB;
-            float topB = otherCenter.Y - hhB;
-            float bottomB = otherCenter.Y + hhB;
+            decimal leftB = otherCenter.X - hwB;
+            decimal rightB = otherCenter.X + hwB;
+            decimal topB = otherCenter.Y - hhB;
+            decimal bottomB = otherCenter.Y + hhB;
 
             // Static collision check
             bool overlapX = rightA > leftB && leftA < rightB;
@@ -71,7 +70,7 @@ namespace SimPhys.Entities
             if (overlapX && overlapY)
             {
                 // Calculate minimum translation vector
-                float[] overlaps =
+                decimal[] overlaps =
                 {
                     rightA - leftB, // Left overlap
                     rightB - leftA, // Right overlap
@@ -79,7 +78,7 @@ namespace SimPhys.Entities
                     bottomB - topA // Bottom overlap
                 };
 
-                float minOverlap = overlaps.Min();
+                decimal minOverlap = overlaps.Min();
                 int index = Array.IndexOf(overlaps, minOverlap);
 
                 Vector2 normal2 = index switch
@@ -94,30 +93,30 @@ namespace SimPhys.Entities
                 collisionData = new CollisionData
                 {
                     Normal = normal2,
-                    Time = 0f,
+                    Time = 0m,
                     PenetrationDepth = minOverlap
                 };
                 return true;
             }
 
             // Continuous collision detection
-            if (relativeVelocity == Vector2.Zero) return false;
+            if (relativeVelocity.Length().NearlyEqual(0)) return false;
 
             // Calculate time of impact for each axis
-            (float entry, float exit) CalculateAxisTimes(float aMin, float aMax, float bMin, float bMax, float velocity)
+            (decimal entry, decimal exit) CalculateAxisTimes(decimal aMin, decimal aMax, decimal bMin, decimal bMax, decimal velocity)
             {
                 if (velocity > 0)
                     return ((bMin - aMax) / velocity, (bMax - aMin) / velocity);
                 if (velocity < 0)
                     return ((bMax - aMin) / velocity, (bMin - aMax) / velocity);
-                return (float.NegativeInfinity, float.PositiveInfinity);
+                return (-99999, 99999);
             }
 
             var xTimes = CalculateAxisTimes(leftA, rightA, leftB, rightB, relativeVelocity.X);
             var yTimes = CalculateAxisTimes(topA, bottomA, topB, bottomB, relativeVelocity.Y);
 
-            float tEntry = Math.Max(xTimes.entry, yTimes.entry);
-            float tExit = Math.Min(xTimes.exit, yTimes.exit);
+            decimal tEntry = Math.Max(xTimes.entry, yTimes.entry);
+            decimal tExit = Math.Min(xTimes.exit, yTimes.exit);
 
             if (tEntry > tExit || tEntry < 0 || tEntry > 1) return false;
 
@@ -164,10 +163,12 @@ namespace SimPhys.Entities
 
         public void ResolveCollision(Rectangle other, CollisionData collisionData)
         {
+            if (IsFrozen && other.IsFrozen) return;
+            
             // Save original state
             Vector2 originalPos = Position;
             Vector2 originalOtherPos = other.Position;
-            
+
             // Freeze System
             var invMass = IsFrozen ? 0 : InverseMass;
             var otherInvMass = other.IsFrozen ? 0 : other.InverseMass;
@@ -181,7 +182,7 @@ namespace SimPhys.Entities
 
             // Calculate relative velocity
             Vector2 relativeVelocity = Velocity - other.Velocity;
-            float velAlongNormal = Vector2.Dot(relativeVelocity, collisionData.Normal);
+            decimal velAlongNormal = Vector2.Dot(relativeVelocity, collisionData.Normal);
 
             // Only resolve if moving towards each other
             if (velAlongNormal > 0)
@@ -192,8 +193,8 @@ namespace SimPhys.Entities
             }
 
             // Calculate impulse
-            float e = Math.Min(Bounciness, other.Bounciness);
-            float j = -(1 + e) * velAlongNormal;
+            decimal e = Math.Min(Bounciness, other.Bounciness);
+            decimal j = -(1 + e) * velAlongNormal;
             j /= (invMass + otherInvMass);
             Vector2 impulse = j * collisionData.Normal;
 
@@ -204,9 +205,9 @@ namespace SimPhys.Entities
             // Position correction for static collisions
             if (collisionData.PenetrationDepth > 0)
             {
-                const float percent = 0.8f;
-                const float slop = 0.01f;
-                float correctionMag = (Math.Max(collisionData.PenetrationDepth - slop, 0) / 
+                const decimal percent = 0.8m;
+                const decimal slop = 0.01m;
+                decimal correctionMag = (Math.Max(collisionData.PenetrationDepth - slop, 0) / 
                                        (invMass + otherInvMass)) * percent;
                 Vector2 correction = collisionData.Normal * correctionMag;
             
@@ -215,7 +216,7 @@ namespace SimPhys.Entities
             }
 
             // Apply remaining movement
-            float remainingTime = 1 - collisionData.Time;
+            decimal remainingTime = 1 - collisionData.Time;
             Position += Velocity * remainingTime;
             other.Position += other.Velocity * remainingTime;
             
@@ -231,32 +232,101 @@ namespace SimPhys.Entities
                 other.Velocity = Vector2.Zero;
             }
         }
+        
+        public override void ForceResolveCollision(Entity other, CollisionData collisionData)
+        {
+            if (other is Circle otherCircle)
+            {
+                ForceResolveCollision(otherCircle, collisionData);
+            }
+            if (other is Rectangle otherRectangle)
+            {
+                ForceResolveCollision(otherRectangle, collisionData);
+            }
+        }
 
-        public override void ResolveBorderCollision(float minX, float maxX, float minY, float maxY)
+        public void ForceResolveCollision(Rectangle other, CollisionData collisionData)
+        {
+            // Exit if either entity is a trigger (no physical resolution needed)
+            if (IsTrigger || other.IsTrigger) return;
+            if (IsFrozen && other.IsFrozen) return;
+
+            // Calculate the overlap along each axis
+            decimal deltaX = Math.Abs(Position.X - other.Position.X);
+            decimal deltaY = Math.Abs(Position.Y - other.Position.Y);
+
+            decimal halfWidthThis = Width / 2;
+            decimal halfHeightThis = Height / 2;
+            decimal halfWidthOther = other.Width / 2;
+            decimal halfHeightOther = other.Height / 2;
+
+            decimal overlapX = (halfWidthThis + halfWidthOther) - deltaX;
+            decimal overlapY = (halfHeightThis + halfHeightOther) - deltaY;
+
+            // If there's no overlap, exit
+            if (overlapX <= 0 || overlapY <= 0) return;
+
+            // Determine the axis with the smallest overlap (MTV direction)
+            Vector2 separation;
+            if (overlapX < overlapY)
+            {
+                // Resolve along the X-axis
+                separation = new Vector2(overlapX * Math.Sign(Position.X - other.Position.X), 0);
+            }
+            else
+            {
+                // Resolve along the Y-axis
+                separation = new Vector2(0, overlapY * Math.Sign(Position.Y - other.Position.Y));
+            }
+
+            // Handle frozen/static entities
+            decimal invMass = IsFrozen ? 0 : InverseMass;
+            decimal otherInvMass = other.IsFrozen ? 0 : other.InverseMass;
+
+            // Avoid division by zero
+            decimal totalInverseMass = invMass + otherInvMass;
+            if (totalInverseMass == 0) return;
+
+            // Calculate positional adjustments
+            Vector2 thisAdjustment = separation * invMass / totalInverseMass;
+            Vector2 otherAdjustment = -separation * otherInvMass / totalInverseMass;
+
+            // Apply adjustments to positions
+            Position += thisAdjustment;
+            other.Position += otherAdjustment;
+        }
+        
+        public void ForceResolveCollision(Circle circle, CollisionData collisionData)
+        {
+            circle.ForceResolveCollision(this, collisionData);
+        }
+
+
+        public override void ResolveBorderCollision(decimal minX, decimal maxX, decimal minY, decimal maxY)
         {
             // Check collision with each boundary and resolve accordingly
 
             // Handle collision on the X axis
-            if (Position.X - Width / 2 < minX) // Colliding with the left wall
+            if (Position.X - (decimal)(Width / 2) < minX) // Colliding with the left wall
             {
-                Position = new Vector2(minX + Width / 2, Position.Y);
+                Position = new Vector2(minX + (decimal)(Width / 2), Position.Y);
                 Velocity = new Vector2(Math.Abs(Velocity.X) * Bounciness, Velocity.Y);
             }
-            else if (Position.X + Width / 2 > maxX) // Colliding with the right wall
+            else if (Position.X + (decimal)(Width / 2) > maxX) // Colliding with the right wall
             {
-                Position = new Vector2(maxX - Width / 2, Position.Y);
+                Position = new Vector2(maxX - (decimal)(Width / 2), Position.Y);
                 Velocity = new Vector2(-Math.Abs(Velocity.X) * Bounciness, Velocity.Y);
             }
 
             // Handle collision on the Y axis
-            if (Position.Y - Height / 2 < minY) // Colliding with the bottom wall
+            if (Position.Y - (decimal)(Height / 2) < minY) // Colliding with the bottom wall
             {
-                Position = new Vector2(Position.X, minY + Height / 2);
+                Position = new Vector2(Position.X, minY + (decimal)(Height / 2));
                 Velocity = new Vector2(Velocity.X, Math.Abs(Velocity.Y) * Bounciness);
             }
-            else if (Position.Y + Height / 2 > maxY) // Colliding with the top wall
+            else if (Position.Y + (decimal)(Height / 2) > maxY) // Colliding with the top wall
             {
-                Position = new Vector2(Position.X, maxY - Height / 2);
+                Position = new Vector2(Position.X, maxY - (decimal)(Height / 2));
                 Velocity = new Vector2(Velocity.X, -Math.Abs(Velocity.Y) * Bounciness);
             }
         }

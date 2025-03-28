@@ -1,11 +1,10 @@
 ﻿using System;
-using System.Numerics;
 
 namespace SimPhys.Entities
 {
     public class Circle : Entity
     {
-        public float Radius { get; set; }
+        public decimal Radius { get; set; }
 
         public override bool Intersects(Entity other, out CollisionData collisionData)
         {
@@ -37,19 +36,19 @@ namespace SimPhys.Entities
             collisionData = null;
             
             Vector2 deltaPos = Position - other.Position;
-            float distanceSquared = deltaPos.LengthSquared();
-            float radiusSum = Radius + other.Radius;
-            float radiusSumSquared = radiusSum * radiusSum;
+            decimal distanceSquared = deltaPos.LengthSquared();
+            decimal radiusSum = Radius + other.Radius;
+            decimal radiusSumSquared = radiusSum * radiusSum;
 
             // Check current overlap
             if (distanceSquared <= radiusSumSquared)
             {
-                float distance = (float)Math.Sqrt(distanceSquared);
+                decimal distance = distanceSquared.Sqrt();
                 Vector2 normal = distance > 0 ? deltaPos / distance : Vector2.UnitX;
                 collisionData = new CollisionData
                 {
                     Normal = normal,
-                    Time = 0f,
+                    Time = 0,
                     PenetrationDepth = radiusSum - distance
                 };
                 return true;
@@ -57,20 +56,20 @@ namespace SimPhys.Entities
 
             // Continuous collision detection
             Vector2 deltaVel = Velocity - other.Velocity;
-            float a = deltaVel.LengthSquared();
-            if (a == 0) return false; // No relative movement
+            decimal a = deltaVel.LengthSquared();
+            if (a.NearlyEqual(0)) return false; // No relative movement
 
-            float b = 2 * Vector2.Dot(deltaPos, deltaVel);
-            float c = deltaPos.LengthSquared() - radiusSumSquared;
+            decimal b = 2 * Vector2.Dot(deltaPos, deltaVel);
+            decimal c = deltaPos.LengthSquared() - radiusSumSquared;
 
-            float discriminant = b * b - 4 * a * c;
+            decimal discriminant = b * b - 4 * a * c;
             if (discriminant < 0) return false;
 
-            discriminant = (float)Math.Sqrt(discriminant);
-            float t0 = (-b - discriminant) / (2 * a);
-            float t1 = (-b + discriminant) / (2 * a);
+            discriminant = discriminant.Sqrt();
+            decimal t0 = (-b - discriminant) / (2 * a);
+            decimal t1 = (-b + discriminant) / (2 * a);
 
-            float t = -1;
+            decimal t = -1;
             if (t0 >= 0 && t0 <= 1) t = t0;
             else if (t1 >= 0 && t1 <= 1) t = t1;
 
@@ -80,7 +79,7 @@ namespace SimPhys.Entities
             Vector2 futurePos1 = Position + Velocity * t;
             Vector2 futurePos2 = other.Position + other.Velocity * t;
             Vector2 futureDelta = futurePos1 - futurePos2;
-            float futureDistance = futureDelta.Length();
+            decimal futureDistance = futureDelta.Length();
             Vector2 normal2 = futureDistance > 0 ? futureDelta / futureDistance : Vector2.UnitX;
 
             collisionData = new CollisionData
@@ -91,6 +90,7 @@ namespace SimPhys.Entities
             };
             return true;
         }
+        
         public bool Intersects(Rectangle other, out CollisionData collisionData)
         {
             collisionData = null;
@@ -98,21 +98,21 @@ namespace SimPhys.Entities
             Vector2 relativeVelocity = Velocity - other.Velocity;
             Vector2 circleStart = Position;
             //Vector2 circleEnd = circleStart + relativeVelocity;
-            float radius = Radius;
+            decimal radius = Radius;
 
-            float expandedLeft = other.Position.X - other.Width / 2 - radius;
-            float expandedRight = other.Position.X + other.Width / 2 + radius;
-            float expandedTop = other.Position.Y - other.Height / 2 - radius;
-            float expandedBottom = other.Position.Y + other.Height / 2 + radius;
+            decimal expandedLeft = other.Position.X - (other.Width / 2) - radius;
+            decimal expandedRight = other.Position.X + (other.Width / 2) + radius;
+            decimal expandedTop = other.Position.Y - (other.Height / 2) - radius;
+            decimal expandedBottom = other.Position.Y + (other.Height / 2) + radius;
 
-            float tEntry = 0f;
-            float tExit = 1f;
+            decimal tEntry = 0m;
+            decimal tExit = 1m;
             Vector2 normal = Vector2.Zero;
 
-            if (Math.Abs(relativeVelocity.X) > float.Epsilon)
+            if (Math.Abs(relativeVelocity.X) > Epsilon)
             {
-                float t1 = (expandedLeft - circleStart.X) / relativeVelocity.X;
-                float t2 = (expandedRight - circleStart.X) / relativeVelocity.X;
+                decimal t1 = (expandedLeft - circleStart.X) / relativeVelocity.X;
+                decimal t2 = (expandedRight - circleStart.X) / relativeVelocity.X;
                 if (t1 > t2) (t1, t2) = (t2, t1);
 
                 tEntry = Math.Max(tEntry, t1);
@@ -123,10 +123,10 @@ namespace SimPhys.Entities
             else if (circleStart.X < expandedLeft || circleStart.X > expandedRight)
                 return false;
 
-            if (Math.Abs(relativeVelocity.Y) > float.Epsilon)
+            if (Math.Abs(relativeVelocity.Y) > Epsilon)
             {
-                float t1 = (expandedTop - circleStart.Y) / relativeVelocity.Y;
-                float t2 = (expandedBottom - circleStart.Y) / relativeVelocity.Y;
+                decimal t1 = (expandedTop - circleStart.Y) / relativeVelocity.Y;
+                decimal t2 = (expandedBottom - circleStart.Y) / relativeVelocity.Y;
                 if (t1 > t2) (t1, t2) = (t2, t1);
 
                 tEntry = Math.Max(tEntry, t1);
@@ -139,21 +139,21 @@ namespace SimPhys.Entities
 
             if (tEntry > tExit || tEntry > 1 || tExit < 0) return false;
 
-            float tCollision = Math.Max(tEntry, 0f);
+            decimal tCollision = Math.Max(tEntry, 0);
 
             Vector2 collisionPoint = circleStart + relativeVelocity * tCollision;
             Vector2 rectCenter = other.Position;
 
-            float closestX = Math.Min(rectCenter.X + other.Width / 2, collisionPoint.X);
-            closestX = Math.Max(closestX, rectCenter.X - other.Width / 2);
+            decimal closestX = Math.Min(rectCenter.X + (other.Width / 2), collisionPoint.X);
+            closestX = Math.Max(closestX, rectCenter.X - (other.Width / 2));
 
-            float closestY = Math.Min(collisionPoint.Y, rectCenter.Y + other.Height / 2);
-            closestY = Math.Max(closestY, rectCenter.Y - other.Height / 2);
+            decimal closestY = Math.Min(collisionPoint.Y, rectCenter.Y + (other.Height / 2));
+            closestY = Math.Max(closestY, rectCenter.Y - (other.Height / 2));
 
             Vector2 delta = collisionPoint - new Vector2(closestX, closestY);
-            float distance = delta.Length();
+            decimal distance = delta.Length();
 
-            if (distance > float.Epsilon)
+            if (distance > Epsilon)
                 normal = Vector2.Normalize(delta);
 
             collisionData = new CollisionData
@@ -180,9 +180,10 @@ namespace SimPhys.Entities
         public void ResolveCollision(Circle other, CollisionData collisionData)
         {
             if (IsTrigger || other.IsTrigger) return;
+            if (IsFrozen && other.IsFrozen) return;
             
             Vector2 normal = collisionData.Normal;
-            float time = collisionData.Time;
+            decimal time = collisionData.Time;
             
             // Freeze System
             var invMass = IsFrozen ? 0 : InverseMass;
@@ -198,7 +199,7 @@ namespace SimPhys.Entities
 
             // Compute relative velocity along normal
             Vector2 relativeVelocity = Velocity - other.Velocity;
-            float velocityAlongNormal = Vector2.Dot(relativeVelocity, normal);
+            decimal velocityAlongNormal = Vector2.Dot(relativeVelocity, normal);
 
             // If separating, revert positions and exit
             if (velocityAlongNormal > 0)
@@ -209,20 +210,20 @@ namespace SimPhys.Entities
             }
 
             // Calculate impulse (considering bounciness)
-            float e = Math.Min(Bounciness, other.Bounciness);
-            float j = -(1 + e) * velocityAlongNormal;
+            decimal e = Math.Min(Bounciness, other.Bounciness);
+            decimal j = -(1 + e) * velocityAlongNormal;
             j /= (invMass + otherInvMass);
 
             // Apply impulse
-            Vector2 impulse = j * normal;
+            Vector2 impulse = normal * j;
             Velocity += impulse * invMass;
             other.Velocity -= impulse * otherInvMass;
 
             // Positional correction for static collisions
             if (collisionData.PenetrationDepth > 0)
             {
-                const float slop = 0.01f;
-                const float percent = 0.2f;
+                const decimal slop = (decimal)0.01;
+                const decimal percent = (decimal)0.2;
                 Vector2 correction = (Math.Max(collisionData.PenetrationDepth - slop, 0) /
                                       (invMass + otherInvMass)) * percent * normal;
                 Position += correction * invMass;
@@ -230,7 +231,7 @@ namespace SimPhys.Entities
             }
 
             // Apply remaining movement after collision
-            float remainingTime = 1 - time;
+            decimal remainingTime = 1 - time;
             Position += Velocity * remainingTime;
             other.Position += other.Velocity * remainingTime;
             
@@ -249,6 +250,7 @@ namespace SimPhys.Entities
         public void ResolveCollision(Rectangle other, CollisionData collisionData)
         {
             if (IsTrigger || other.IsTrigger) return;
+            if (IsFrozen && other.IsFrozen) return;
             
             // Save original state in case we need to revert
             Vector2 originalPos = Position;
@@ -258,25 +260,25 @@ namespace SimPhys.Entities
             var invMass = IsFrozen ? 0 : InverseMass;
             var otherInvMass = other.IsFrozen ? 0 : other.InverseMass;
             
-            float t = collisionData.Time;
+            decimal t = collisionData.Time;
             Position += Velocity * t;
             other.Position += other.Velocity * t;
 
             Vector2 relativeVelocity = Velocity - other.Velocity;
-            float velocityAlongNormal = Vector2.Dot(relativeVelocity, collisionData.Normal);
+            decimal velocityAlongNormal = Vector2.Dot(relativeVelocity, collisionData.Normal);
 
             if (velocityAlongNormal > 0) 
                 return;
 
-            float e = Math.Min(Bounciness, other.Bounciness);
-            float j = -(1 + e) * velocityAlongNormal / (invMass + otherInvMass);
+            decimal e = Math.Min(Bounciness, other.Bounciness);
+            decimal j = -(1 + e) * velocityAlongNormal / (invMass + otherInvMass);
             Vector2 impulse = j * collisionData.Normal;
 
             Velocity += impulse * invMass;
             other.Velocity -= impulse * otherInvMass;
 
-            const float percent = 0.8f;
-            const float slop = 0.01f;
+            const decimal percent = 0.8m;
+            const decimal slop = 0.01m;
             Vector2 correction = collisionData.Normal * 
                 Math.Max(collisionData.PenetrationDepth - slop, 0) / 
                 (invMass + otherInvMass) * percent;
@@ -284,7 +286,7 @@ namespace SimPhys.Entities
             Position += correction * invMass;
             other.Position -= correction * otherInvMass;
 
-            float remainingTime = 1 - t;
+            decimal remainingTime = 1 - t;
             Position += Velocity * remainingTime;
             other.Position += other.Velocity * remainingTime;
             
@@ -300,7 +302,103 @@ namespace SimPhys.Entities
                 other.Velocity = Vector2.Zero;
             }
         }
-        public override void ResolveBorderCollision(float minX, float maxX, float minY, float maxY)
+        
+        public override void ForceResolveCollision(Entity other, CollisionData collisionData)
+        {
+            if (other is Circle otherCircle)
+            {
+                ForceResolveCollision(otherCircle, collisionData);
+            }
+            else if (other is Rectangle otherRectangle)
+            {
+                ForceResolveCollision(otherRectangle, collisionData);
+            }
+        }
+        
+        public void ForceResolveCollision(Circle other, CollisionData collisionData)
+        {
+            // Exit if either entity is a trigger (no physical resolution needed)
+            if (IsTrigger || other.IsTrigger) return;
+            if (IsFrozen && other.IsFrozen) return;
+
+            // Calculate the penetration depth and normal
+            decimal penetrationDepth = collisionData.PenetrationDepth;
+            Vector2 normal = collisionData.Normal;
+
+            // Handle frozen/static entities
+            decimal invMass = IsFrozen ? 0 : InverseMass;
+            decimal otherInvMass = other.IsFrozen ? 0 : other.InverseMass;
+
+            // Avoid division by zero
+            decimal totalInverseMass = invMass + otherInvMass;
+            if (totalInverseMass == 0) return;
+
+            // Calculate positional adjustments
+            Vector2 separation = (penetrationDepth / totalInverseMass) * normal;
+            Vector2 thisAdjustment = separation * invMass;
+            Vector2 otherAdjustment = -separation * otherInvMass;
+
+            // Apply adjustments to positions
+            Position += thisAdjustment;
+            other.Position += otherAdjustment;
+        }
+        public void ForceResolveCollision(Rectangle rectangle, CollisionData collisionData)
+        {
+            // Exit if either entity is a trigger (no physical resolution needed)
+            if (IsTrigger || rectangle.IsTrigger) return;
+            if (IsFrozen && rectangle.IsFrozen) return;
+
+            // Get the closest point on the rectangle to the circle's center
+            Vector2 closestPoint = GetClosestPointOnRectangle(rectangle);
+            
+            Vector2 GetClosestPointOnRectangle(Rectangle r)
+            {
+                // Calculate the half extents of the rectangle
+                decimal halfWidth = r.Width / 2;
+                decimal halfHeight = r.Height / 2;
+
+                // Clamp the circle's position to the bounds of the rectangle
+                decimal closestX = Math.Max(Position.X, r.Position.X - halfWidth);
+                closestX = Math.Min(closestX, r.Position.X + halfWidth);
+
+                decimal closestY = Math.Max(Position.Y, r.Position.Y - halfHeight);
+                closestY = Math.Min(closestY, r.Position.Y + halfHeight);
+
+                return new Vector2(closestX, closestY);
+            }
+
+            // Calculate the direction and distance from the closest point to the circle's center
+            Vector2 direction = Position - closestPoint;
+            decimal distance = direction.Length();
+
+            // If the circle is not actually intersecting the rectangle, exit
+            if (distance >= Radius) return;
+
+            // Normalize the direction to get the separation normal
+            direction = direction.Normalized();
+
+            // Calculate the penetration depth
+            decimal penetrationDepth = Radius - distance;
+
+            // Handle frozen/static entities
+            decimal invMass = IsFrozen ? 0 : InverseMass;
+            decimal rectInvMass = rectangle.IsFrozen ? 0 : rectangle.InverseMass;
+
+            // Avoid division by zero
+            decimal totalInverseMass = invMass + rectInvMass;
+            if (totalInverseMass == 0) return;
+
+            // Calculate positional adjustments
+            Vector2 separation = (penetrationDepth / totalInverseMass) * direction;
+            Vector2 circleAdjustment = separation * invMass;
+            Vector2 rectAdjustment = -separation * rectInvMass;
+
+            // Apply adjustments to positions
+            Position += circleAdjustment;
+            rectangle.Position += rectAdjustment;
+        }
+        
+        public override void ResolveBorderCollision(decimal minX, decimal maxX, decimal minY, decimal maxY)
         {
             // Check if the circle is outside the boundaries and resolve accordingly
 

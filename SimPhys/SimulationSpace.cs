@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using SimPhys.Entities;
-using Vector2 = System.Numerics.Vector2;
 
 namespace SimPhys
 {
@@ -27,12 +25,10 @@ namespace SimPhys
         public void SimulateStep()
         {
             if (Entities.Count == 0) return;
+            
+            var subSteps = Math.Max(1, SpaceSettings.SubSteppingSpeed);
 
-            float maxSpeed = SpaceSettings.SubSteppingSpeed;
-            int subSteps = (int)Math.Ceiling(Entities.Max(e => e.Velocity.Length()) / maxSpeed);
-            subSteps = Math.Max(1, subSteps);
-
-            float subStepFriction = (float)Math.Pow(SpaceSettings.Friction, 1.0f / subSteps);
+            decimal subStepFriction = (decimal)Math.Pow(SpaceSettings.Friction, 1.0f / subSteps);
 
             var entities = Entities.ToArray();
             for (int step = 0; step < subSteps; step++)
@@ -47,8 +43,9 @@ namespace SimPhys
                     entity.Velocity *= subStepFriction; // Apply friction per substep
                     entity.Position += entity.Velocity / subSteps;
 
-                    entity.ResolveBorderCollision(-SpaceSettings.SpaceSize.X, SpaceSettings.SpaceSize.X,
-                        -SpaceSettings.SpaceSize.Y, SpaceSettings.SpaceSize.Y);
+                    if (!entity.IsFrozen)
+                        entity.ResolveBorderCollision(-SpaceSettings.SpaceSize.X, SpaceSettings.SpaceSize.X,
+                            -SpaceSettings.SpaceSize.Y, SpaceSettings.SpaceSize.Y);
                 }
 
                 for (int i = 0; i < entities.Length; i++)
@@ -56,7 +53,10 @@ namespace SimPhys
                     for (int j = i + 1; j < entities.Length; j++)
                     {
                         if (entities[i].Intersects(entities[j], out var data))
+                        {
                             entities[i].ResolveCollision(entities[j], data);
+                            entities[i].ForceResolveCollision(entities[j], data);
+                        }
                     }
                 }
             }

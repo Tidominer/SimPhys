@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Numerics;
 
 namespace SimPhys.Entities
 {
@@ -8,11 +7,13 @@ namespace SimPhys.Entities
     {
         public Vector2 Position { get; set; }
         public Vector2 Velocity { get; set; }
-        public float Bounciness { get; set; }
-        public float Mass { get; set; }
-        public float InverseMass => Mass <= 0 ? 0 : 1f / Mass;
+        public decimal Bounciness { get; set; }
+        public decimal Mass { get; set; }
+        public decimal InverseMass => Mass <= 0 ? 0 : 1 / Mass;
         public bool IsFrozen { get; set; }
         public bool IsTrigger { get; set; }
+        
+        public const decimal Epsilon = 0.000000001m;
         
 
         public Action<Entity> OnCollisionEnter = delegate { };
@@ -21,7 +22,8 @@ namespace SimPhys.Entities
 
         public abstract bool Intersects(Entity other, out CollisionData collisionData);
         public abstract void ResolveCollision(Entity other, CollisionData collisionData);
-        public abstract void ResolveBorderCollision(float minX, float maxX, float minY, float maxY);
+        public abstract void ForceResolveCollision(Entity other, CollisionData collisionData);
+        public abstract void ResolveBorderCollision(decimal minX, decimal maxX, decimal minY, decimal maxY);
 
         public void Step()
         {

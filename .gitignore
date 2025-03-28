@@ -87,3 +87,5 @@ SimulationTest.cs
 SimulationTest.cs.meta
 ShootableEntities.cs.meta
 ShootableEntities.cs
+
+*.meta

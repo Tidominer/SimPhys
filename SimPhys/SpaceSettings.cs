@@ -1,6 +1,4 @@
-﻿using System.Numerics;
-
-namespace SimPhys
+﻿namespace SimPhys
 {
     public class SpaceSettings
     {
