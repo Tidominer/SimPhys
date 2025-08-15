@@ -7,6 +7,7 @@ namespace SimPhys.Entities
     {
         public decimal Width { get; set; } = 1;
         public decimal Height { get; set; } = 1;
+        public decimal Rotation { get; set; } // Angle in radians
 
         public override bool Intersects(Entity other, out CollisionData collisionData)
         {
@@ -41,109 +42,161 @@ namespace SimPhys.Entities
         public bool Intersects(Rectangle other, out CollisionData collisionData)
         {
             collisionData = null;
+            decimal minOverlap = decimal.MaxValue;
+            Vector2 mtvAxis = Vector2.Zero;
+
+            // Get all unique axes from both rectangles
+            Vector2[] axes = GetAxes().Concat(other.GetAxes()).ToArray();
+
+            foreach (var axis in axes)
+            {
+                Projection p1 = Project(this, axis);
+                Projection p2 = Project(other, axis);
+
+                if (!p1.Overlaps(p2))
+                {
+                    // Found a separating axis, no collision
+                    return false;
+                }
+                else
+                {
+                    // An overlap was found. Check if it is the minimum overlap so far.
+                    decimal overlap = p1.GetOverlap(p2);
+                    if (overlap < minOverlap)
+                    {
+                        minOverlap = overlap;
+                        mtvAxis = axis;
+                    }
+                }
+            }
             
-            Vector2 relativeVelocity = Velocity - other.Velocity;
-            Vector2 thisCenter = Position;
-            Vector2 otherCenter = other.Position;
-
-            // Calculate half dimensions
-            decimal hwA = Width / 2;
-            decimal hhA = Height / 2;
-            decimal hwB = other.Width / 2;
-            decimal hhB = other.Height / 2;
-
-            // Current bounding coordinates
-            decimal leftA = thisCenter.X - hwA;
-            decimal rightA = thisCenter.X + hwA;
-            decimal topA = thisCenter.Y - hhA;
-            decimal bottomA = thisCenter.Y + hhA;
-
-            decimal leftB = otherCenter.X - hwB;
-            decimal rightB = otherCenter.X + hwB;
-            decimal topB = otherCenter.Y - hhB;
-            decimal bottomB = otherCenter.Y + hhB;
-
-            // Static collision check
-            bool overlapX = rightA > leftB && leftA < rightB;
-            bool overlapY = bottomA > topB && topA < bottomB;
-
-            if (overlapX && overlapY)
+            // Ensure the collision normal is pointing away from the first rectangle
+            Vector2 direction = other.Position - Position;
+            if (Vector2.Dot(direction, mtvAxis) < 0)
             {
-                // Calculate minimum translation vector
-                decimal[] overlaps =
-                {
-                    rightA - leftB, // Left overlap
-                    rightB - leftA, // Right overlap
-                    bottomA - topB, // Top overlap
-                    bottomB - topA // Bottom overlap
-                };
-
-                decimal minOverlap = overlaps.Min();
-                int index = Array.IndexOf(overlaps, minOverlap);
-
-                Vector2 normal2 = index switch
-                {
-                    0 => new Vector2(-1, 0), // Left
-                    1 => new Vector2(1, 0), // Right
-                    2 => new Vector2(0, -1), // Top
-                    3 => new Vector2(0, 1), // Bottom
-                    _ => Vector2.Zero
-                };
-
-                collisionData = new CollisionData
-                {
-                    Normal = normal2,
-                    Time = 0m,
-                    PenetrationDepth = minOverlap
-                };
-                return true;
-            }
-
-            // Continuous collision detection
-            if (relativeVelocity.Length().NearlyEqual(0)) return false;
-
-            // Calculate time of impact for each axis
-            (decimal entry, decimal exit) CalculateAxisTimes(decimal aMin, decimal aMax, decimal bMin, decimal bMax, decimal velocity)
-            {
-                if (velocity > 0)
-                    return ((bMin - aMax) / velocity, (bMax - aMin) / velocity);
-                if (velocity < 0)
-                    return ((bMax - aMin) / velocity, (bMin - aMax) / velocity);
-                return (-99999, 99999);
-            }
-
-            var xTimes = CalculateAxisTimes(leftA, rightA, leftB, rightB, relativeVelocity.X);
-            var yTimes = CalculateAxisTimes(topA, bottomA, topB, bottomB, relativeVelocity.Y);
-
-            decimal tEntry = Math.Max(xTimes.entry, yTimes.entry);
-            decimal tExit = Math.Min(xTimes.exit, yTimes.exit);
-
-            if (tEntry > tExit || tEntry < 0 || tEntry > 1) return false;
-
-            // Determine collision normal
-            Vector2 normal;
-            if (xTimes.entry > yTimes.entry)
-            {
-                normal = relativeVelocity.X > 0
-                    ? new Vector2(-1, 0)
-                    : new Vector2(1, 0);
-            }
-            else
-            {
-                normal = relativeVelocity.Y > 0
-                    ? new Vector2(0, -1)
-                    : new Vector2(0, 1);
+                mtvAxis = -mtvAxis;
             }
 
             collisionData = new CollisionData
             {
-                Normal = normal,
-                Time = tEntry,
-                PenetrationDepth = 0 // Continuous collision just touches
+                Normal = mtvAxis.Normalized(),
+                PenetrationDepth = minOverlap,
+                Time = 0 // SAT is a static test; time of impact is considered immediate
             };
+
             return true;
         }
 
+        public override void ForceResolveCollision(Entity other, CollisionData collisionData)
+        {
+            if (other is Circle otherCircle)
+            {
+                ForceResolveCollision(otherCircle, collisionData);
+            }
+            if (other is Rectangle otherRectangle)
+            {
+                ForceResolveCollision(otherRectangle, collisionData);
+            }
+        }
+
+        public void ForceResolveCollision(Rectangle other, CollisionData collisionData)
+        {
+            if (IsTrigger || other.IsTrigger) return;
+            if (IsFrozen && other.IsFrozen) return;
+
+            decimal invMass = IsFrozen ? 0 : InverseMass;
+            decimal otherInvMass = other.IsFrozen ? 0 : other.InverseMass;
+
+            decimal totalInverseMass = invMass + otherInvMass;
+            if (totalInverseMass.NearlyEqual(0)) return;
+
+            // The Minimum Translation Vector (MTV) is the smallest push to separate the objects
+            Vector2 mtv = collisionData.Normal * collisionData.PenetrationDepth;
+
+            // Ensure the MTV is pushing the objects apart
+            Vector2 relativePos = Position - other.Position;
+            if (Vector2.Dot(relativePos, mtv) < 0)
+            {
+                mtv = -mtv;
+            }
+            
+            // Move the entities apart based on their inverse mass
+            Position += mtv * (invMass / totalInverseMass);
+            other.Position -= mtv * (otherInvMass / totalInverseMass);
+        }
+        
+        public void ForceResolveCollision(Circle circle, CollisionData collisionData)
+        {
+            circle.ForceResolveCollision(this, collisionData);
+        }
+
+        #region Helper Methods for SAT
+        
+        // Represents the projection of a shape onto an axis
+        private struct Projection
+        {
+            public readonly decimal Min;
+            public readonly decimal Max;
+
+            public Projection(decimal min, decimal max)
+            {
+                Min = min;
+                Max = max;
+            }
+
+            public bool Overlaps(Projection other) => Max > other.Min && Min < other.Max;
+            public decimal GetOverlap(Projection other) => Math.Min(Max, other.Max) - Math.Max(Min, other.Min);
+        }
+
+        // Projects the vertices of a rectangle onto a given axis
+        private static Projection Project(Rectangle rect, Vector2 axis)
+        {
+            decimal min = decimal.MaxValue;
+            decimal max = decimal.MinValue;
+            foreach (var vertex in rect.GetVertices())
+            {
+                decimal dot = Vector2.Dot(vertex, axis);
+                min = Math.Min(min, dot);
+                max = Math.Max(max, dot);
+            }
+            return new Projection(min, max);
+        }
+
+        // Calculates the four vertices of the rotated rectangle in world space
+        public Vector2[] GetVertices()
+        {
+            var vertices = new Vector2[4];
+            var halfSize = new Vector2(Width / 2, Height / 2);
+            var cosR = (decimal)Math.Cos((double)Rotation);
+            var sinR = (decimal)Math.Sin((double)Rotation);
+
+            vertices[0] = new Vector2(cosR * halfSize.X - sinR * halfSize.Y, sinR * halfSize.X + cosR * halfSize.Y); // Top-Right
+            vertices[1] = new Vector2(cosR * -halfSize.X - sinR * halfSize.Y, sinR * -halfSize.X + cosR * halfSize.Y); // Top-Left
+            vertices[2] = new Vector2(cosR * -halfSize.X - sinR * -halfSize.Y, sinR * -halfSize.X + cosR * -halfSize.Y); // Bottom-Left
+            vertices[3] = new Vector2(cosR * halfSize.X - sinR * -halfSize.Y, sinR * halfSize.X + cosR * -halfSize.Y); // Bottom-Right
+
+            for (int i = 0; i < 4; i++)
+            {
+                vertices[i] += Position;
+            }
+            return vertices;
+        }
+
+        // Gets the two unique axes of the rectangle, perpendicular to its sides
+        private Vector2[] GetAxes()
+        {
+            var cosR = (decimal)Math.Cos((double)Rotation);
+            var sinR = (decimal)Math.Sin((double)Rotation);
+            return new[]
+            {
+                new Vector2(cosR, sinR),        // Rotated X-axis
+                new Vector2(-sinR, cosR)        // Rotated Y-axis
+            };
+        }
+        
+        #endregion
+
+        // Unchanged methods are omitted for brevity...
         public override void ResolveCollision(Entity other, CollisionData collisionData)
         {
             if (other is Circle otherCircle)
@@ -233,79 +286,11 @@ namespace SimPhys.Entities
             }
         }
         
-        public override void ForceResolveCollision(Entity other, CollisionData collisionData)
-        {
-            if (other is Circle otherCircle)
-            {
-                ForceResolveCollision(otherCircle, collisionData);
-            }
-            if (other is Rectangle otherRectangle)
-            {
-                ForceResolveCollision(otherRectangle, collisionData);
-            }
-        }
-
-        public void ForceResolveCollision(Rectangle other, CollisionData collisionData)
-        {
-            // Exit if either entity is a trigger (no physical resolution needed)
-            if (IsTrigger || other.IsTrigger) return;
-            if (IsFrozen && other.IsFrozen) return;
-
-            // Calculate the overlap along each axis
-            decimal deltaX = Math.Abs(Position.X - other.Position.X);
-            decimal deltaY = Math.Abs(Position.Y - other.Position.Y);
-
-            decimal halfWidthThis = Width / 2;
-            decimal halfHeightThis = Height / 2;
-            decimal halfWidthOther = other.Width / 2;
-            decimal halfHeightOther = other.Height / 2;
-
-            decimal overlapX = (halfWidthThis + halfWidthOther) - deltaX;
-            decimal overlapY = (halfHeightThis + halfHeightOther) - deltaY;
-
-            // If there's no overlap, exit
-            if (overlapX <= 0 || overlapY <= 0) return;
-
-            // Determine the axis with the smallest overlap (MTV direction)
-            Vector2 separation;
-            if (overlapX < overlapY)
-            {
-                // Resolve along the X-axis
-                separation = new Vector2(overlapX * Math.Sign(Position.X - other.Position.X), 0);
-            }
-            else
-            {
-                // Resolve along the Y-axis
-                separation = new Vector2(0, overlapY * Math.Sign(Position.Y - other.Position.Y));
-            }
-
-            // Handle frozen/static entities
-            decimal invMass = IsFrozen ? 0 : InverseMass;
-            decimal otherInvMass = other.IsFrozen ? 0 : other.InverseMass;
-
-            // Avoid division by zero
-            decimal totalInverseMass = invMass + otherInvMass;
-            if (totalInverseMass == 0) return;
-
-            // Calculate positional adjustments
-            Vector2 thisAdjustment = separation * invMass / totalInverseMass;
-            Vector2 otherAdjustment = -separation * otherInvMass / totalInverseMass;
-
-            // Apply adjustments to positions
-            Position += thisAdjustment;
-            other.Position += otherAdjustment;
-        }
-        
-        public void ForceResolveCollision(Circle circle, CollisionData collisionData)
-        {
-            circle.ForceResolveCollision(this, collisionData);
-        }
-
-
         public override void ResolveBorderCollision(decimal minX, decimal maxX, decimal minY, decimal maxY)
         {
-            // Check collision with each boundary and resolve accordingly
-
+            // Note: This border collision method is for AABB and will not work correctly for rotated rectangles.
+            // A more advanced solution using the rectangle's vertices would be required for accurate border collision.
+            
             // Handle collision on the X axis
             if (Position.X - (decimal)(Width / 2) < minX) // Colliding with the left wall
             {
