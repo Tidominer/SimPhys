@@ -4,7 +4,7 @@ namespace SimPhys.Entities
 {
     public class Circle : Entity
     {
-        public decimal Radius { get; set; }
+        public decimal Radius { get; set; } = 0.5m;
 
         public override bool Intersects(Entity other, out CollisionData collisionData)
         {

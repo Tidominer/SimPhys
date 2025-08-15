@@ -5,8 +5,8 @@ namespace SimPhys.Entities
 {
     public class Rectangle : Entity
     {
-        public decimal Width { get; set; }
-        public decimal Height { get; set; }
+        public decimal Width { get; set; } = 1;
+        public decimal Height { get; set; } = 1;
 
         public override bool Intersects(Entity other, out CollisionData collisionData)
         {

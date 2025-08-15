@@ -26,7 +26,7 @@ namespace SimPhys
         {
             if (Entities.Count == 0) return;
             
-            var subSteps = Math.Max(1, SpaceSettings.SubSteppingSpeed);
+            var subSteps = Math.Max(1, SpaceSettings.SubStepsCount);
 
             decimal subStepFriction = (decimal)Math.Pow(SpaceSettings.Friction, 1.0f / subSteps);
 
@@ -43,9 +43,10 @@ namespace SimPhys
                     entity.Velocity *= subStepFriction; // Apply friction per substep
                     entity.Position += entity.Velocity / subSteps;
 
-                    if (!entity.IsFrozen)
-                        entity.ResolveBorderCollision(-SpaceSettings.SpaceSize.X, SpaceSettings.SpaceSize.X,
-                            -SpaceSettings.SpaceSize.Y, SpaceSettings.SpaceSize.Y);
+                    //Border Collision Resolution
+                    if (!entity.IsFrozen && SpaceSettings.SpaceSize != null)
+                        entity.ResolveBorderCollision(-SpaceSettings.SpaceSize.Value.X, SpaceSettings.SpaceSize.Value.X,
+                            -SpaceSettings.SpaceSize.Value.Y, SpaceSettings.SpaceSize.Value.Y);
                 }
 
                 for (int i = 0; i < entities.Length; i++)

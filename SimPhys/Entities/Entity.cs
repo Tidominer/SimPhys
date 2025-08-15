@@ -7,8 +7,8 @@ namespace SimPhys.Entities
     {
         public Vector2 Position { get; set; }
         public Vector2 Velocity { get; set; }
-        public decimal Bounciness { get; set; }
-        public decimal Mass { get; set; }
+        public decimal Bounciness { get; set; } = 0;
+        public decimal Mass { get; set; } = 1;
         public decimal InverseMass => Mass <= 0 ? 0 : 1 / Mass;
         public bool IsFrozen { get; set; }
         public bool IsTrigger { get; set; }

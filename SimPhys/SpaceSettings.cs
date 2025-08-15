@@ -2,8 +2,8 @@
 {
     public class SpaceSettings
     {
-        public float Friction;
-        public float SubSteppingSpeed;
-        public Vector2 SpaceSize;
+        public float Friction = 0.98f;
+        public float SubStepsCount = 1;
+        public Vector2? SpaceSize = null;
     }
 }
