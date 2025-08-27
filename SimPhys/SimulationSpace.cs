@@ -68,7 +68,6 @@ namespace SimPhys
 
                 for (int i = 0; i < entities.Length; i++)
                 {
-                    if (entities[i].IsFrozen) continue;
                     for (int j = i + 1; j < entities.Length; j++)
                     {
                         if (entities[i].Intersects(entities[j], out var data))
