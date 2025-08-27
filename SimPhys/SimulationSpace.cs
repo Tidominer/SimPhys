@@ -56,7 +56,11 @@ namespace SimPhys
                 {
                     entity.Step();
                     //Freeze system
-                    if (entity.IsFrozen) entity.Velocity = Vector2.Zero;
+                    if (entity.IsFrozen)
+                    {
+                        entity.Velocity = Vector2.Zero;
+                        continue;
+                    }
                     //if (entity.Velocity.Length() < 0.000001f) entity.Velocity = Vector2.Zero;
 
                     entity.Velocity *= subStepFriction; // Apply friction per substep
@@ -70,6 +74,7 @@ namespace SimPhys
 
                 for (int i = 0; i < entities.Length; i++)
                 {
+                    if (entities[i].IsFrozen) continue;
                     for (int j = i + 1; j < entities.Length; j++)
                     {
                         if (entities[i].Intersects(entities[j], out var data))
