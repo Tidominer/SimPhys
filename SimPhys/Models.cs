@@ -117,32 +117,32 @@
             return new Vector2(a.X * scalar, a.Y * scalar);
         }
 
-// Scalar Multiplication (int)
+        // Scalar Multiplication (int)
         public static Vector2 operator *(int scalar, Vector2 a)
         {
             return new Vector2(a.X * scalar, a.Y * scalar);
         }
 
-// Scalar Multiplication (float)
+        // Scalar Multiplication (float)
         public static Vector2 operator *(float scalar, Vector2 a)
         {
             return new Vector2(a.X * (decimal)scalar, a.Y * (decimal)scalar);
         }
 
-// Scalar Division (decimal)
+        // Scalar Division (decimal)
         public static Vector2 operator /(decimal scalar, Vector2 a)
         {
             if (a.X == 0 || a.Y == 0) throw new System.DivideByZeroException("Cannot divide by zero vector.");
             return new Vector2(scalar / a.X, scalar / a.Y);
         }
 
-// Scalar Division (int)
+        // Scalar Division (int)
         public static Vector2 operator /(int scalar, Vector2 a)
         {
             return (decimal)scalar / a;
         }
 
-// Scalar Division (float)
+        // Scalar Division (float)
         public static Vector2 operator /(float scalar, Vector2 a)
         {
             return (decimal)scalar / a;
@@ -189,6 +189,19 @@
         public static decimal Distance(Vector2 a, Vector2 b)
         {
             return (a - b).Length();
+        }
+        
+        /// <summary>
+        /// Reflects a vector off a surface with the given normal.
+        /// </summary>
+        /// <param name="direction">The direction vector to reflect.</param>
+        /// <param name="normal">The normal of the surface being reflected off.</param>
+        /// <returns>The reflected vector.</returns>
+        public static Vector2 Reflect(Vector2 direction, Vector2 normal)
+        {
+            // Formula: R = V - 2 * (V · N) * N
+            decimal dotProduct = Vector2.Dot(direction, normal);
+            return direction - 2 * dotProduct * normal;
         }
 
         // Override ToString for easy debugging
