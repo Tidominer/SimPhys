@@ -61,15 +61,9 @@ namespace SimPhys
                         entity.Velocity = Vector2.Zero;
                         continue;
                     }
-                    //if (entity.Velocity.Length() < 0.000001f) entity.Velocity = Vector2.Zero;
 
                     entity.Velocity *= subStepFriction; // Apply friction per substep
                     entity.Position += entity.Velocity / subSteps;
-
-                    //Border Collision Resolution
-                    if (!entity.IsFrozen && SpaceSettings.SpaceSize != null)
-                        entity.ResolveBorderCollision(-SpaceSettings.SpaceSize.Value.X, SpaceSettings.SpaceSize.Value.X,
-                            -SpaceSettings.SpaceSize.Value.Y, SpaceSettings.SpaceSize.Value.Y);
                 }
 
                 for (int i = 0; i < entities.Length; i++)
@@ -80,7 +74,6 @@ namespace SimPhys
                         if (entities[i].Intersects(entities[j], out var data))
                         {
                             entities[i].ResolveCollision(entities[j], data);
-                            entities[i].ForceResolveCollision(entities[j], data);
                         }
                     }
                 }

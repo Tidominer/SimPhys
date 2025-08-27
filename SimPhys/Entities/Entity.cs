@@ -14,7 +14,6 @@ namespace SimPhys.Entities
         public bool IsTrigger { get; set; }
         
         public const decimal Epsilon = 0.000000001m;
-        
 
         public Action<Entity> OnCollisionEnter = delegate { };
         public Action<Entity> OnCollisionStep = delegate { };
