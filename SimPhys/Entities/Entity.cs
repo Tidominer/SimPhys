@@ -21,8 +21,6 @@ namespace SimPhys.Entities
 
         public abstract bool Intersects(Entity other, out CollisionData collisionData);
         public abstract void ResolveCollision(Entity other, CollisionData collisionData);
-        public abstract void ForceResolveCollision(Entity other, CollisionData collisionData);
-        public abstract void ResolveBorderCollision(decimal minX, decimal maxX, decimal minY, decimal maxY);
 
         public void Step()
         {

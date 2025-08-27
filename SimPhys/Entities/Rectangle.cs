@@ -173,49 +173,6 @@ namespace SimPhys.Entities
             return true;
         }
 
-        public override void ForceResolveCollision(Entity other, CollisionData collisionData)
-        {
-            if (other is Circle otherCircle)
-            {
-                ForceResolveCollision(otherCircle, collisionData);
-            }
-            if (other is Rectangle otherRectangle)
-            {
-                ForceResolveCollision(otherRectangle, collisionData);
-            }
-        }
-
-        public void ForceResolveCollision(Rectangle other, CollisionData collisionData)
-        {
-            if (IsTrigger || other.IsTrigger) return;
-            if (IsFrozen && other.IsFrozen) return;
-
-            decimal invMass = IsFrozen ? 0 : InverseMass;
-            decimal otherInvMass = other.IsFrozen ? 0 : other.InverseMass;
-
-            decimal totalInverseMass = invMass + otherInvMass;
-            if (totalInverseMass.NearlyEqual(0)) return;
-
-            // The Minimum Translation Vector (MTV) is the smallest push to separate the objects
-            Vector2 mtv = collisionData.Normal * collisionData.PenetrationDepth;
-
-            // Ensure the MTV is pushing the objects apart
-            Vector2 relativePos = Position - other.Position;
-            if (Vector2.Dot(relativePos, mtv) < 0)
-            {
-                mtv = -mtv;
-            }
-            
-            // Move the entities apart based on their inverse mass
-            Position += mtv * (invMass / totalInverseMass);
-            other.Position -= mtv * (otherInvMass / totalInverseMass);
-        }
-        
-        public void ForceResolveCollision(Circle circle, CollisionData collisionData)
-        {
-            circle.ForceResolveCollision(this, collisionData);
-        }
-
         #region Helper Methods for SAT
         
         // Represents the projection of a shape onto an axis
@@ -282,7 +239,6 @@ namespace SimPhys.Entities
         
         #endregion
 
-        // Unchanged methods are omitted for brevity...
         public override void ResolveCollision(Entity other, CollisionData collisionData)
         {
             if (other is Circle otherCircle)
@@ -369,36 +325,6 @@ namespace SimPhys.Entities
             {
                 other.Position = originalOtherPos;
                 other.Velocity = Vector2.Zero;
-            }
-        }
-        
-        public override void ResolveBorderCollision(decimal minX, decimal maxX, decimal minY, decimal maxY)
-        {
-            // Note: This border collision method is for AABB and will not work correctly for rotated rectangles.
-            // A more advanced solution using the rectangle's vertices would be required for accurate border collision.
-            
-            // Handle collision on the X axis
-            if (Position.X - (decimal)(Width / 2) < minX) // Colliding with the left wall
-            {
-                Position = new Vector2(minX + (decimal)(Width / 2), Position.Y);
-                Velocity = new Vector2(Math.Abs(Velocity.X) * Bounciness, Velocity.Y);
-            }
-            else if (Position.X + (decimal)(Width / 2) > maxX) // Colliding with the right wall
-            {
-                Position = new Vector2(maxX - (decimal)(Width / 2), Position.Y);
-                Velocity = new Vector2(-Math.Abs(Velocity.X) * Bounciness, Velocity.Y);
-            }
-
-            // Handle collision on the Y axis
-            if (Position.Y - (decimal)(Height / 2) < minY) // Colliding with the bottom wall
-            {
-                Position = new Vector2(Position.X, minY + (decimal)(Height / 2));
-                Velocity = new Vector2(Velocity.X, Math.Abs(Velocity.Y) * Bounciness);
-            }
-            else if (Position.Y + (decimal)(Height / 2) > maxY) // Colliding with the top wall
-            {
-                Position = new Vector2(Position.X, maxY - (decimal)(Height / 2));
-                Velocity = new Vector2(Velocity.X, -Math.Abs(Velocity.Y) * Bounciness);
             }
         }
     }
