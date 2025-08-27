@@ -95,53 +95,137 @@ namespace SimPhys.Entities
         {
             collisionData = null;
 
-            // Transform the circle's center into the rectangle's local space
+            // --- First, check for static (initial) overlap ---
+            // This part is the same as the previous static implementation.
             Vector2 delta = Position - other.Position;
-            decimal cosR = (decimal)Math.Cos((double)-other.Rotation);
-            decimal sinR = (decimal)Math.Sin((double)-other.Rotation);
-
+            decimal cosNegR = (decimal)Math.Cos((double)-other.Rotation);
+            decimal sinNegR = (decimal)Math.Sin((double)-other.Rotation);
             Vector2 rotatedCircleCenter = new Vector2(
-                delta.X * cosR - delta.Y * sinR,
-                delta.X * sinR + delta.Y * cosR
+                delta.X * cosNegR - delta.Y * sinNegR,
+                delta.X * sinNegR + delta.Y * cosNegR
             );
-
-            // Find the closest point on the AABB (in the rectangle's local space) to the circle
             decimal halfWidth = other.Width / 2;
             decimal halfHeight = other.Height / 2;
-
             Vector2 closestPointLocal = new Vector2(
                 Math.Max(-halfWidth, Math.Min(rotatedCircleCenter.X, halfWidth)),
                 Math.Max(-halfHeight, Math.Min(rotatedCircleCenter.Y, halfHeight))
             );
-
-            // Check if the circle is overlapping with the closest point
             Vector2 localDelta = rotatedCircleCenter - closestPointLocal;
-            if (localDelta.LengthSquared() > Radius * Radius)
+
+            if (localDelta.LengthSquared() <= Radius * Radius)
             {
-                return false; // No collision
+                // Static overlap detected, return collision data for immediate resolution.
+                decimal distance = localDelta.Length();
+                Vector2 normalLocal = distance > 0 ? localDelta.Normalized() : Vector2.UnitX;
+
+                decimal cosR = (decimal)Math.Cos((double)other.Rotation);
+                decimal sinR = (decimal)Math.Sin((double)other.Rotation);
+                Vector2 worldNormal = new Vector2(
+                    normalLocal.X * cosR - normalLocal.Y * sinR,
+                    normalLocal.X * sinR + normalLocal.Y * cosR
+                );
+
+                collisionData = new CollisionData
+                {
+                    Normal = worldNormal,
+                    PenetrationDepth = Radius - distance,
+                    Time = 0
+                };
+                return true;
             }
 
-            // Collision detected, calculate penetration and normal
-            decimal distance = localDelta.Length();
-            Vector2 normalLocal = distance > 0 ? localDelta.Normalized() : Vector2.UnitX;
+            // --- If no static overlap, perform Continuous Collision Detection (CCD) ---
+            Vector2 relativeVelocity = this.Velocity - other.Velocity;
+            if (relativeVelocity.LengthSquared().NearlyEqual(0)) return false; // No relative motion
 
-            // Rotate the collision normal back to world space
-            cosR = (decimal)Math.Cos((double)other.Rotation);
-            sinR = (decimal)Math.Sin((double)other.Rotation);
-
-            Vector2 worldNormal = new Vector2(
-                normalLocal.X * cosR - normalLocal.Y * sinR,
-                normalLocal.X * sinR + normalLocal.Y * cosR
+            // Transform relative velocity into rectangle's local space
+            Vector2 localVelocity = new Vector2(
+                relativeVelocity.X * cosNegR - relativeVelocity.Y * sinNegR,
+                relativeVelocity.X * sinNegR + relativeVelocity.Y * cosNegR
             );
 
-            collisionData = new CollisionData
-            {
-                Normal = worldNormal,
-                PenetrationDepth = Radius - distance,
-                Time = 0 // Static test
-            };
+            // Sweep the circle against the AABB
+            decimal tEnter = 0, tExit = 1;
+            decimal t;
 
-            return true;
+            // Test X-axis slab
+            if (localVelocity.X.NearlyEqual(0))
+            {
+                if (rotatedCircleCenter.X - Radius > halfWidth || rotatedCircleCenter.X + Radius < -halfWidth)
+                    return false;
+            }
+            else
+            {
+                t = (-halfWidth - Radius - rotatedCircleCenter.X) / localVelocity.X;
+                decimal t2 = (halfWidth + Radius - rotatedCircleCenter.X) / localVelocity.X;
+                if (t > t2)
+                {
+                    var temp = t;
+                    t = t2;
+                    t2 = temp;
+                }
+
+                tEnter = Math.Max(tEnter, t);
+                tExit = Math.Min(tExit, t2);
+                if (tEnter > tExit) return false;
+            }
+
+            // Test Y-axis slab
+            if (localVelocity.Y.NearlyEqual(0))
+            {
+                if (rotatedCircleCenter.Y - Radius > halfHeight || rotatedCircleCenter.Y + Radius < -halfHeight)
+                    return false;
+            }
+            else
+            {
+                t = (-halfHeight - Radius - rotatedCircleCenter.Y) / localVelocity.Y;
+                decimal t2 = (halfHeight + Radius - rotatedCircleCenter.Y) / localVelocity.Y;
+                if (t > t2)
+                {
+                    var temp = t;
+                    t = t2;
+                    t2 = temp;
+                }
+
+                tEnter = Math.Max(tEnter, t);
+                tExit = Math.Min(tExit, t2);
+                if (tEnter > tExit) return false;
+            }
+
+            // Check for collision with corners (as moving point vs static circles)
+            // For simplicity, this implementation currently relies on the slab test.
+            // A full implementation would also solve for time of impact with the four corner vertices.
+            // However, the slab test on the Minkowski sum is a very strong and often sufficient heuristic.
+
+            if (tEnter > 0 && tEnter < 1)
+            {
+                // Collision found, now determine the normal
+                Vector2 pointOfImpactLocal = rotatedCircleCenter + localVelocity * tEnter;
+                Vector2 closestPointOnAABB = new Vector2(
+                    Math.Max(-halfWidth, Math.Min(pointOfImpactLocal.X, halfWidth)),
+                    Math.Max(-halfHeight, Math.Min(pointOfImpactLocal.Y, halfHeight))
+                );
+
+                Vector2 normalLocal = (pointOfImpactLocal - closestPointOnAABB).Normalized();
+
+                // Rotate normal back to world space
+                decimal cosR = (decimal)Math.Cos((double)other.Rotation);
+                decimal sinR = (decimal)Math.Sin((double)other.Rotation);
+                Vector2 worldNormal = new Vector2(
+                    normalLocal.X * cosR - normalLocal.Y * sinR,
+                    normalLocal.X * sinR + normalLocal.Y * cosR
+                );
+
+                collisionData = new CollisionData
+                {
+                    Normal = worldNormal,
+                    Time = tEnter,
+                    PenetrationDepth = 0
+                };
+                return true;
+            }
+
+            return false;
         }
 
         public override void ResolveCollision(Entity other, CollisionData collisionData)

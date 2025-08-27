@@ -42,10 +42,107 @@ namespace SimPhys.Entities
         public bool Intersects(Rectangle other, out CollisionData collisionData)
         {
             collisionData = null;
+            Vector2 relativeVelocity = this.Velocity - other.Velocity;
+
+            decimal firstCollisionTime = 0;
+            decimal lastSeparationTime = 1;
+            Vector2 collisionNormal = Vector2.Zero;
+
+            // Get all axes to test from both rectangles
+            Vector2[] axes = GetAxes().Concat(other.GetAxes()).ToArray();
+
+            foreach (var axis in axes)
+            {
+                decimal v_proj = Vector2.Dot(relativeVelocity, axis);
+                Projection p1 = Project(this, axis);
+                Projection p2 = Project(other, axis);
+
+                // Calculate distances between the intervals on the current axis
+                decimal distMin = p2.Min - p1.Max; // Distance from p1's right to p2's left
+                decimal distMax = p1.Min - p2.Max; // Distance from p2's right to p1's left
+
+                // If they are already overlapping on this axis and not moving apart, they are colliding
+                if (distMin < 0 && distMax < 0)
+                {
+                    // Static overlap case. If velocity is separating them, we might find a later collision time.
+                    // But if it's not, we treat it as an immediate collision.
+                    if (v_proj.NearlyEqual(0)) continue; // Can't separate on this axis, check others.
+                }
+
+                // Handle parallel movement: if separated and not moving towards each other, no collision is possible
+                if (v_proj.NearlyEqual(0))
+                {
+                    if (distMin > 0 || distMax > 0) return false; // Separated and parallel
+                    continue;
+                }
+
+                // Calculate time of entry and exit
+                decimal tEnter = distMin / v_proj;
+                decimal tExit = distMax / v_proj;
+
+                // Ensure tEnter is the earlier time
+                if (tEnter > tExit)
+                {
+                    var temp = tEnter;
+                    tEnter = tExit;
+                    tExit = temp;
+                }
+
+                // Update the overall collision interval
+                if (tEnter > firstCollisionTime)
+                {
+                    firstCollisionTime = tEnter;
+                    collisionNormal = axis;
+                }
+
+                if (tExit < lastSeparationTime)
+                {
+                    lastSeparationTime = tExit;
+                }
+
+                // If the collision interval is invalid, there is a separating axis
+                if (firstCollisionTime > lastSeparationTime)
+                {
+                    return false;
+                }
+            }
+
+            // If collision occurs within the time frame [0, 1]
+            if (firstCollisionTime >= 0 && firstCollisionTime < 1)
+            {
+                // If the collision time is effectively zero, it's a static overlap.
+                // We need to calculate penetration depth for resolution.
+                if (firstCollisionTime < Epsilon)
+                {
+                    return IntersectsStatically(other, out collisionData);
+                }
+
+                // Otherwise, it's a continuous collision.
+                Vector2 direction = other.Position - this.Position;
+                if (Vector2.Dot(direction, collisionNormal) < 0)
+                {
+                    collisionNormal = -collisionNormal;
+                }
+
+                collisionData = new CollisionData
+                {
+                    Normal = collisionNormal.Normalized(),
+                    Time = firstCollisionTime,
+                    PenetrationDepth = 0 // No penetration yet in a continuous collision
+                };
+                return true;
+            }
+
+            return false;
+        }
+
+        // Helper method containing the original static SAT logic for overlapping objects.
+        private bool IntersectsStatically(Rectangle other, out CollisionData collisionData)
+        {
+            collisionData = null;
             decimal minOverlap = decimal.MaxValue;
             Vector2 mtvAxis = Vector2.Zero;
 
-            // Get all unique axes from both rectangles
             Vector2[] axes = GetAxes().Concat(other.GetAxes()).ToArray();
 
             foreach (var axis in axes)
@@ -53,35 +150,24 @@ namespace SimPhys.Entities
                 Projection p1 = Project(this, axis);
                 Projection p2 = Project(other, axis);
 
-                if (!p1.Overlaps(p2))
+                decimal overlap = p1.GetOverlap(p2);
+                if (overlap <= 0) return false;
+
+                if (overlap < minOverlap)
                 {
-                    // Found a separating axis, no collision
-                    return false;
-                }
-                else
-                {
-                    // An overlap was found. Check if it is the minimum overlap so far.
-                    decimal overlap = p1.GetOverlap(p2);
-                    if (overlap < minOverlap)
-                    {
-                        minOverlap = overlap;
-                        mtvAxis = axis;
-                    }
+                    minOverlap = overlap;
+                    mtvAxis = axis;
                 }
             }
-            
-            // Ensure the collision normal is pointing away from the first rectangle
+
             Vector2 direction = other.Position - Position;
-            if (Vector2.Dot(direction, mtvAxis) < 0)
-            {
-                mtvAxis = -mtvAxis;
-            }
+            if (Vector2.Dot(direction, mtvAxis) < 0) mtvAxis = -mtvAxis;
 
             collisionData = new CollisionData
             {
                 Normal = mtvAxis.Normalized(),
                 PenetrationDepth = minOverlap,
-                Time = 0 // SAT is a static test; time of impact is considered immediate
+                Time = 0
             };
 
             return true;
