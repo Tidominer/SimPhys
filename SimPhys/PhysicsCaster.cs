@@ -71,7 +71,7 @@ namespace SimPhys
                     continue;
                 }
                 
-                if (CircleCastVsEntity(origin, radius, direction, entity, out var currentHit) && currentHit.Distance < closestHit.Distance)
+                if (CircleCastVsEntity(origin, radius, direction, maxDistance, entity, out var currentHit) && currentHit.Distance < closestHit.Distance)
                 {
                     closestHit = currentHit;
                     hasHit = true;
@@ -99,13 +99,14 @@ namespace SimPhys
             };
         }
 
-        private bool CircleCastVsEntity(Vector2 origin, decimal radius, Vector2 direction, Entity entity, out CircleCastHit hitInfo)
+        private bool CircleCastVsEntity(Vector2 origin, decimal radius, Vector2 direction, decimal maxDistance, Entity entity, out CircleCastHit hitInfo)
         {
             hitInfo = null;
             return entity switch
             {
-                Circle circle => CircleCastVsCircle(origin, radius, direction, circle, out hitInfo),
-                Rectangle rect => CircleCastVsRectangle(origin, radius, direction, rect, out hitInfo),
+                // Pass maxDistance along to the specific check
+                Circle circle => CircleCastVsCircle(origin, radius, direction, maxDistance, circle, out hitInfo),
+                Rectangle rect => CircleCastVsRectangle(origin, radius, direction, maxDistance, rect, out hitInfo),
                 _ => false
             };
         }
@@ -207,11 +208,13 @@ namespace SimPhys
             return false;
         }
 
-        private bool CircleCastVsCircle(Vector2 origin, decimal radius, Vector2 direction, Circle circle, out CircleCastHit hitInfo)
+        private bool CircleCastVsCircle(Vector2 origin, decimal radius, Vector2 direction, decimal maxDistance, Circle circle, out CircleCastHit hitInfo)
         {
             hitInfo = null;
             var enlargedCircle = new Circle { Position = circle.Position, Radius = circle.Radius + radius };
-            if (RaycastVsCircle(origin, direction, enlargedCircle, out var rayHit))
+    
+            // Check if the raycast hits within the maxDistance
+            if (RaycastVsCircle(origin, direction, enlargedCircle, out var rayHit) && rayHit.Distance <= maxDistance)
             {
                 Vector2 circlePosAtHit = origin + direction * rayHit.Distance;
                 hitInfo = new CircleCastHit
@@ -227,23 +230,29 @@ namespace SimPhys
             return false;
         }
 
-        private bool CircleCastVsRectangle(Vector2 origin, decimal radius, Vector2 direction, Rectangle rect, out CircleCastHit hitInfo)
+        private bool CircleCastVsRectangle(Vector2 origin, decimal radius, Vector2 direction, decimal maxDistance, Rectangle rect, out CircleCastHit hitInfo)
         {
             hitInfo = null;
-            
+
             decimal cosNegR = (decimal)Math.Cos((double)-rect.Rotation);
             decimal sinNegR = (decimal)Math.Sin((double)-rect.Rotation);
             Vector2 delta = origin - rect.Position;
 
-            Vector2 localOrigin = new Vector2(delta.X * cosNegR - delta.Y * sinNegR, delta.X * sinNegR + delta.Y * cosNegR);
-            Vector2 localDir = new Vector2(direction.X * cosNegR - direction.Y * sinNegR, direction.X * sinNegR + direction.Y * cosNegR);
-            
+            Vector2 localOrigin =
+                new Vector2(delta.X * cosNegR - delta.Y * sinNegR, delta.X * sinNegR + delta.Y * cosNegR);
+            Vector2 localDir = new Vector2(direction.X * cosNegR - direction.Y * sinNegR,
+                direction.X * sinNegR + direction.Y * cosNegR);
+
             decimal halfWidth = rect.Width / 2;
             decimal halfHeight = rect.Height / 2;
-            
-            decimal tEnter = 0, tExit = 1;
+
+            // Initialize tExit to maxDistance
+            decimal tEnter = 0;
+            decimal tExit = maxDistance;
+
             decimal t;
 
+            // Test X-axis slab
             if (localDir.X.NearlyEqual(0))
             {
                 if (localOrigin.X - radius > halfWidth || localOrigin.X + radius < -halfWidth) return false;
@@ -252,12 +261,19 @@ namespace SimPhys
             {
                 t = (-halfWidth - radius - localOrigin.X) / localDir.X;
                 decimal t2 = (halfWidth + radius - localOrigin.X) / localDir.X;
-                if (t > t2) { var temp = t; t = t2; t2 = temp; }
+                if (t > t2)
+                {
+                    var temp = t;
+                    t = t2;
+                    t2 = temp;
+                }
+
                 tEnter = Math.Max(tEnter, t);
                 tExit = Math.Min(tExit, t2);
                 if (tEnter > tExit) return false;
             }
 
+            // Test Y-axis slab
             if (localDir.Y.NearlyEqual(0))
             {
                 if (localOrigin.Y - radius > halfHeight || localOrigin.Y + radius < -halfHeight) return false;
@@ -266,26 +282,34 @@ namespace SimPhys
             {
                 t = (-halfHeight - radius - localOrigin.Y) / localDir.Y;
                 decimal t2 = (halfHeight + radius - localOrigin.Y) / localDir.Y;
-                if (t > t2) { var temp = t; t = t2; t2 = temp; }
+                if (t > t2)
+                {
+                    var temp = t;
+                    t = t2;
+                    t2 = temp;
+                }
+
                 tEnter = Math.Max(tEnter, t);
                 tExit = Math.Min(tExit, t2);
                 if (tEnter > tExit) return false;
             }
 
-            if (tEnter >= 0 && tEnter < 1)
+            // Final check to ensure hit is within range
+            if (tEnter >= 0 && tEnter <= maxDistance)
             {
                 Vector2 circlePosAtHit = origin + direction * tEnter;
-                
+
                 Vector2 localCirclePosAtHit = localOrigin + localDir * tEnter;
                 Vector2 closestPointOnAABB = new Vector2(
                     Math.Max(-halfWidth, Math.Min(localCirclePosAtHit.X, halfWidth)),
                     Math.Max(-halfHeight, Math.Min(localCirclePosAtHit.Y, halfHeight))
                 );
                 Vector2 localNormal = (localCirclePosAtHit - closestPointOnAABB).Normalized();
-                
+
                 decimal cosR = (decimal)Math.Cos((double)rect.Rotation);
                 decimal sinR = (decimal)Math.Sin((double)rect.Rotation);
-                Vector2 worldNormal = new Vector2(localNormal.X * cosR - localNormal.Y * sinR, localNormal.X * sinR + localNormal.Y * cosR);
+                Vector2 worldNormal = new Vector2(localNormal.X * cosR - localNormal.Y * sinR,
+                    localNormal.X * sinR + localNormal.Y * cosR);
 
                 hitInfo = new CircleCastHit
                 {
