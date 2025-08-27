@@ -197,4 +197,61 @@
             return $"Vector2({X}, {Y})";
         }
     }
+    
+    /// <summary>
+    /// Contains detailed information about a raycast intersection.
+    /// </summary>
+    public class RaycastHit
+    {
+        /// <summary>
+        /// The entity that was hit by the ray.
+        /// </summary>
+        public Entities.Entity HitEntity { get; internal set; }
+    
+        /// <summary>
+        /// The exact point in world space where the ray hit the entity's collider.
+        /// </summary>
+        public Vector2 Point { get; internal set; }
+    
+        /// <summary>
+        /// The normal vector of the surface at the point of impact.
+        /// </summary>
+        public Vector2 Normal { get; internal set; }
+    
+        /// <summary>
+        /// The distance from the ray's origin to the point of impact.
+        /// </summary>
+        public decimal Distance { get; internal set; }
+    }
+
+    /// <summary>
+    /// Contains detailed information about a circlecast intersection.
+    /// </summary>
+    public class CircleCastHit
+    {
+        /// <summary>
+        /// The entity that was hit by the circle sweep.
+        /// </summary>
+        public Entities.Entity HitEntity { get; internal set; }
+    
+        /// <summary>
+        /// The exact point in world space where the swept circle first touched the entity's collider.
+        /// </summary>
+        public Vector2 Point { get; internal set; }
+    
+        /// <summary>
+        /// The normal vector of the surface at the point of impact.
+        /// </summary>
+        public Vector2 Normal { get; internal set; }
+    
+        /// <summary>
+        /// The distance from the circle's starting position to its position at the point of impact.
+        /// </summary>
+        public decimal Distance { get; internal set; }
+    
+        /// <summary>
+        /// The center position of the casting circle at the moment of impact.
+        /// </summary>
+        public Vector2 CirclePositionAtHit { get; internal set; }
+    }
 }

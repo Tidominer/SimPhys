@@ -8,20 +8,40 @@ namespace SimPhys
     {
         public List<Entity> Entities { get; } = new List<Entity>();
         public SpaceSettings SpaceSettings;
+        
+        private readonly PhysicsCaster _caster;
 
         public SimulationSpace(SpaceSettings settings)
         {
             SpaceSettings = settings;
+            _caster = new PhysicsCaster(this.Entities);
+            Entities = new List<Entity>();
         }
 
+        /// <summary>
+        /// Adds a new entity to the simulation space.
+        /// </summary>
+        /// <param name="entity">The entity to add to the simulation.</param>
         public void AddEntity(Entity entity)
         {
             if (!Entities.Contains(entity))
                 Entities.Add(entity);
         }
 
-        public void RemoveEntity(Entity entity) => Entities.Remove(entity);
+        /// <summary>
+        /// Removes an entity from the simulation space.
+        /// </summary>
+        /// <param name="entity">The entity to remove from the simulation.</param>
+        public void RemoveEntity(Entity entity)
+        {
+            Entities.Remove(entity);
+        }
 
+        /// <summary>
+        /// Advances the simulation by one fixed step, processing all physics calculations.
+        /// This includes applying forces, handling collisions, and updating entity positions
+        /// over a series of smaller, discrete substeps for improved accuracy.
+        /// </summary>
         public void SimulateStep()
         {
             if (Entities.Count == 0) return;
@@ -62,5 +82,25 @@ namespace SimPhys
                 }
             }
         }
+        
+        #region Public Casting API (Façade)
+
+        /// <summary>
+        /// Casts a ray against all entities in the simulation space.
+        /// </summary>
+        public bool Raycast(Vector2 origin, Vector2 direction, decimal maxDistance, out RaycastHit hitInfo)
+        {
+            return _caster.Raycast(origin, direction, maxDistance, out hitInfo);
+        }
+
+        /// <summary>
+        /// Sweeps a circle through the simulation space and checks for intersections.
+        /// </summary>
+        public bool CircleCast(Vector2 origin, decimal radius, Vector2 direction, decimal maxDistance, out CircleCastHit hitInfo)
+        {
+            return _caster.CircleCast(origin, radius, direction, maxDistance, out hitInfo);
+        }
+
+        #endregion
     }
 }
