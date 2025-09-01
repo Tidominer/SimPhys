@@ -30,7 +30,6 @@ namespace SimPhys.Entities
 
             return intersects;
         }
-
         public bool Intersects(Circle other, out CollisionData collisionData)
         {
             collisionData = null;
@@ -90,7 +89,6 @@ namespace SimPhys.Entities
             };
             return true;
         }
-
         public bool Intersects(Rectangle other, out CollisionData collisionData)
         {
             collisionData = null;
@@ -239,7 +237,6 @@ namespace SimPhys.Entities
                 ResolveCollision(otherRectangle, collisionData);
             }
         }
-
         public void ResolveCollision(Circle other, CollisionData collisionData)
         {
             if (IsTrigger || other.IsTrigger) return;
@@ -364,6 +361,70 @@ namespace SimPhys.Entities
                 other.Position = originalOtherPos;
                 other.Velocity = Vector2.Zero;
             }
+        }
+        
+        public override void ForceResolveCollision(Entity other, CollisionData collisionData)
+        {
+            if (other is Circle otherCircle)
+            {
+                ForceResolveCollision(otherCircle, collisionData);
+            }
+            else if (other is Rectangle otherRectangle)
+            {
+                ForceResolveCollision(otherRectangle, collisionData);
+            }
+        }
+        public void ForceResolveCollision(Circle other, CollisionData collisionData)
+        {
+            // Exit if either entity is a trigger (no physical resolution needed)
+            if (IsTrigger || other.IsTrigger) return;
+            if (IsFrozen && other.IsFrozen) return;
+
+            // Calculate the penetration depth and normal
+            decimal penetrationDepth = collisionData.PenetrationDepth;
+            Vector2 normal = collisionData.Normal;
+
+            // Handle frozen/static entities
+            decimal invMass = IsFrozen ? 0 : InverseMass;
+            decimal otherInvMass = other.IsFrozen ? 0 : other.InverseMass;
+
+            // Avoid division by zero
+            decimal totalInverseMass = invMass + otherInvMass;
+            if (totalInverseMass == 0) return;
+
+            // Calculate positional adjustments
+            Vector2 separation = (penetrationDepth / totalInverseMass) * normal;
+            Vector2 thisAdjustment = separation * invMass;
+            Vector2 otherAdjustment = -separation * otherInvMass;
+
+            // Apply adjustments to positions
+            Position += thisAdjustment;
+            other.Position += otherAdjustment;
+        }
+        public void ForceResolveCollision(Rectangle rectangle, CollisionData collisionData)
+        {
+            if (IsTrigger || rectangle.IsTrigger) return;
+            if (IsFrozen && rectangle.IsFrozen) return;
+
+            decimal invMass = IsFrozen ? 0 : InverseMass;
+            decimal rectInvMass = rectangle.IsFrozen ? 0 : rectangle.InverseMass;
+
+            decimal totalInverseMass = invMass + rectInvMass;
+            if (totalInverseMass.NearlyEqual(0)) return;
+
+            // Use the MTV from collision data to separate the objects
+            Vector2 mtv = collisionData.Normal * collisionData.PenetrationDepth;
+
+            // Ensure MTV pushes objects apart correctly
+            Vector2 relativePos = Position - rectangle.Position;
+            if (Vector2.Dot(relativePos, mtv) < 0)
+            {
+                mtv = -mtv;
+            }
+
+            // Apply adjustments based on inverse mass
+            Position += mtv * (invMass / totalInverseMass);
+            rectangle.Position -= mtv * (rectInvMass / totalInverseMass);
         }
     }
 }

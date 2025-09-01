@@ -7,7 +7,7 @@ namespace SimPhys.Entities
     {
         public Vector2 Position { get; set; }
         public Vector2 Velocity { get; set; }
-        public decimal Bounciness { get; set; } = 0;
+        public decimal Bounciness { get; set; } = 0.5m;
         public decimal Mass { get; set; } = 1;
         public decimal InverseMass => Mass <= 0 ? 0 : 1 / Mass;
         public bool IsFrozen { get; set; }
@@ -21,6 +21,7 @@ namespace SimPhys.Entities
 
         public abstract bool Intersects(Entity other, out CollisionData collisionData);
         public abstract void ResolveCollision(Entity other, CollisionData collisionData);
+        public abstract void ForceResolveCollision(Entity other, CollisionData collisionData);
 
         public void Step()
         {

@@ -33,12 +33,10 @@ namespace SimPhys.Entities
 
             return intersects;
         }
-
         public bool Intersects(Circle other, out CollisionData collisionData)
         {
             return other.Intersects(this, out collisionData);
         }
-
         public bool Intersects(Rectangle other, out CollisionData collisionData)
         {
             collisionData = null;
@@ -136,109 +134,6 @@ namespace SimPhys.Entities
             return false;
         }
 
-        // Helper method containing the original static SAT logic for overlapping objects.
-        private bool IntersectsStatically(Rectangle other, out CollisionData collisionData)
-        {
-            collisionData = null;
-            decimal minOverlap = decimal.MaxValue;
-            Vector2 mtvAxis = Vector2.Zero;
-
-            Vector2[] axes = GetAxes().Concat(other.GetAxes()).ToArray();
-
-            foreach (var axis in axes)
-            {
-                Projection p1 = Project(this, axis);
-                Projection p2 = Project(other, axis);
-
-                decimal overlap = p1.GetOverlap(p2);
-                if (overlap <= 0) return false;
-
-                if (overlap < minOverlap)
-                {
-                    minOverlap = overlap;
-                    mtvAxis = axis;
-                }
-            }
-
-            Vector2 direction = other.Position - Position;
-            if (Vector2.Dot(direction, mtvAxis) < 0) mtvAxis = -mtvAxis;
-
-            collisionData = new CollisionData
-            {
-                Normal = mtvAxis.Normalized(),
-                PenetrationDepth = minOverlap,
-                Time = 0
-            };
-
-            return true;
-        }
-
-        #region Helper Methods for SAT
-        
-        // Represents the projection of a shape onto an axis
-        private struct Projection
-        {
-            public readonly decimal Min;
-            public readonly decimal Max;
-
-            public Projection(decimal min, decimal max)
-            {
-                Min = min;
-                Max = max;
-            }
-
-            public bool Overlaps(Projection other) => Max > other.Min && Min < other.Max;
-            public decimal GetOverlap(Projection other) => Math.Min(Max, other.Max) - Math.Max(Min, other.Min);
-        }
-
-        // Projects the vertices of a rectangle onto a given axis
-        private static Projection Project(Rectangle rect, Vector2 axis)
-        {
-            decimal min = decimal.MaxValue;
-            decimal max = decimal.MinValue;
-            foreach (var vertex in rect.GetVertices())
-            {
-                decimal dot = Vector2.Dot(vertex, axis);
-                min = Math.Min(min, dot);
-                max = Math.Max(max, dot);
-            }
-            return new Projection(min, max);
-        }
-
-        // Calculates the four vertices of the rotated rectangle in world space
-        public Vector2[] GetVertices()
-        {
-            var vertices = new Vector2[4];
-            var halfSize = new Vector2(Width / 2, Height / 2);
-            var cosR = (decimal)Math.Cos((double)Rotation);
-            var sinR = (decimal)Math.Sin((double)Rotation);
-
-            vertices[0] = new Vector2(cosR * halfSize.X - sinR * halfSize.Y, sinR * halfSize.X + cosR * halfSize.Y); // Top-Right
-            vertices[1] = new Vector2(cosR * -halfSize.X - sinR * halfSize.Y, sinR * -halfSize.X + cosR * halfSize.Y); // Top-Left
-            vertices[2] = new Vector2(cosR * -halfSize.X - sinR * -halfSize.Y, sinR * -halfSize.X + cosR * -halfSize.Y); // Bottom-Left
-            vertices[3] = new Vector2(cosR * halfSize.X - sinR * -halfSize.Y, sinR * halfSize.X + cosR * -halfSize.Y); // Bottom-Right
-
-            for (int i = 0; i < 4; i++)
-            {
-                vertices[i] += Position;
-            }
-            return vertices;
-        }
-
-        // Gets the two unique axes of the rectangle, perpendicular to its sides
-        private Vector2[] GetAxes()
-        {
-            var cosR = (decimal)Math.Cos((double)Rotation);
-            var sinR = (decimal)Math.Sin((double)Rotation);
-            return new[]
-            {
-                new Vector2(cosR, sinR),        // Rotated X-axis
-                new Vector2(-sinR, cosR)        // Rotated Y-axis
-            };
-        }
-        
-        #endregion
-
         public override void ResolveCollision(Entity other, CollisionData collisionData)
         {
             if (other is Circle otherCircle)
@@ -250,12 +145,10 @@ namespace SimPhys.Entities
                 ResolveCollision(otherRectangle, collisionData);
             }
         }
-
         public void ResolveCollision(Circle other, CollisionData collisionData)
         {
             other.ResolveCollision(this, collisionData);
         }
-
         public void ResolveCollision(Rectangle other, CollisionData collisionData)
         {
             if (IsFrozen && other.IsFrozen) return;
@@ -327,5 +220,149 @@ namespace SimPhys.Entities
                 other.Velocity = Vector2.Zero;
             }
         }
+        
+        public override void ForceResolveCollision(Entity other, CollisionData collisionData)
+        {
+            if (other is Circle otherCircle)
+            {
+                ForceResolveCollision(otherCircle, collisionData);
+            }
+            if (other is Rectangle otherRectangle)
+            {
+                ForceResolveCollision(otherRectangle, collisionData);
+            }
+        }
+        public void ForceResolveCollision(Rectangle other, CollisionData collisionData)
+        {
+            if (IsTrigger || other.IsTrigger) return;
+            if (IsFrozen && other.IsFrozen) return;
+
+            decimal invMass = IsFrozen ? 0 : InverseMass;
+            decimal otherInvMass = other.IsFrozen ? 0 : other.InverseMass;
+
+            decimal totalInverseMass = invMass + otherInvMass;
+            if (totalInverseMass.NearlyEqual(0)) return;
+
+            // The Minimum Translation Vector (MTV) is the smallest push to separate the objects
+            Vector2 mtv = collisionData.Normal * collisionData.PenetrationDepth;
+
+            // Ensure the MTV is pushing the objects apart
+            Vector2 relativePos = Position - other.Position;
+            if (Vector2.Dot(relativePos, mtv) < 0)
+            {
+                mtv = -mtv;
+            }
+            
+            // Move the entities apart based on their inverse mass
+            Position += mtv * (invMass / totalInverseMass);
+            other.Position -= mtv * (otherInvMass / totalInverseMass);
+        }
+        public void ForceResolveCollision(Circle circle, CollisionData collisionData)
+        {
+            circle.ForceResolveCollision(this, collisionData);
+        }
+        
+        #region Helper Methods for SAT
+        
+        // Helper method containing the original static SAT logic for overlapping objects.
+        private bool IntersectsStatically(Rectangle other, out CollisionData collisionData)
+        {
+            collisionData = null;
+            decimal minOverlap = decimal.MaxValue;
+            Vector2 mtvAxis = Vector2.Zero;
+
+            Vector2[] axes = GetAxes().Concat(other.GetAxes()).ToArray();
+
+            foreach (var axis in axes)
+            {
+                Projection p1 = Project(this, axis);
+                Projection p2 = Project(other, axis);
+
+                decimal overlap = p1.GetOverlap(p2);
+                if (overlap <= 0) return false;
+
+                if (overlap < minOverlap)
+                {
+                    minOverlap = overlap;
+                    mtvAxis = axis;
+                }
+            }
+
+            Vector2 direction = other.Position - Position;
+            if (Vector2.Dot(direction, mtvAxis) < 0) mtvAxis = -mtvAxis;
+
+            collisionData = new CollisionData
+            {
+                Normal = mtvAxis.Normalized(),
+                PenetrationDepth = minOverlap,
+                Time = 0
+            };
+
+            return true;
+        }
+        
+        // Represents the projection of a shape onto an axis
+        private struct Projection
+        {
+            public readonly decimal Min;
+            public readonly decimal Max;
+
+            public Projection(decimal min, decimal max)
+            {
+                Min = min;
+                Max = max;
+            }
+
+            public bool Overlaps(Projection other) => Max > other.Min && Min < other.Max;
+            public decimal GetOverlap(Projection other) => Math.Min(Max, other.Max) - Math.Max(Min, other.Min);
+        }
+
+        // Projects the vertices of a rectangle onto a given axis
+        private static Projection Project(Rectangle rect, Vector2 axis)
+        {
+            decimal min = decimal.MaxValue;
+            decimal max = decimal.MinValue;
+            foreach (var vertex in rect.GetVertices())
+            {
+                decimal dot = Vector2.Dot(vertex, axis);
+                min = Math.Min(min, dot);
+                max = Math.Max(max, dot);
+            }
+            return new Projection(min, max);
+        }
+
+        // Calculates the four vertices of the rotated rectangle in world space
+        public Vector2[] GetVertices()
+        {
+            var vertices = new Vector2[4];
+            var halfSize = new Vector2(Width / 2, Height / 2);
+            var cosR = (decimal)Math.Cos((double)Rotation);
+            var sinR = (decimal)Math.Sin((double)Rotation);
+
+            vertices[0] = new Vector2(cosR * halfSize.X - sinR * halfSize.Y, sinR * halfSize.X + cosR * halfSize.Y); // Top-Right
+            vertices[1] = new Vector2(cosR * -halfSize.X - sinR * halfSize.Y, sinR * -halfSize.X + cosR * halfSize.Y); // Top-Left
+            vertices[2] = new Vector2(cosR * -halfSize.X - sinR * -halfSize.Y, sinR * -halfSize.X + cosR * -halfSize.Y); // Bottom-Left
+            vertices[3] = new Vector2(cosR * halfSize.X - sinR * -halfSize.Y, sinR * halfSize.X + cosR * -halfSize.Y); // Bottom-Right
+
+            for (int i = 0; i < 4; i++)
+            {
+                vertices[i] += Position;
+            }
+            return vertices;
+        }
+
+        // Gets the two unique axes of the rectangle, perpendicular to its sides
+        private Vector2[] GetAxes()
+        {
+            var cosR = (decimal)Math.Cos((double)Rotation);
+            var sinR = (decimal)Math.Sin((double)Rotation);
+            return new[]
+            {
+                new Vector2(cosR, sinR),        // Rotated X-axis
+                new Vector2(-sinR, cosR)        // Rotated Y-axis
+            };
+        }
+        
+        #endregion
     }
 }

@@ -73,6 +73,7 @@ namespace SimPhys
                         if (entities[i].Intersects(entities[j], out var data))
                         {
                             entities[i].ResolveCollision(entities[j], data);
+                            entities[i].ForceResolveCollision(entities[j], data);
                         }
                     }
                 }
