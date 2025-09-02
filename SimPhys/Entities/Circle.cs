@@ -6,7 +6,7 @@ namespace SimPhys.Entities
     {
         public decimal Radius { get; set; } = 0.5m;
 
-        public override bool Intersects(Entity other, out CollisionData collisionData)
+        public override bool Intersects(Entity other, out CollisionData? collisionData)
         {
             collisionData = null;
 
@@ -30,7 +30,7 @@ namespace SimPhys.Entities
 
             return intersects;
         }
-        public bool Intersects(Circle other, out CollisionData collisionData)
+        public bool Intersects(Circle other, out CollisionData? collisionData)
         {
             collisionData = null;
             
@@ -89,7 +89,7 @@ namespace SimPhys.Entities
             };
             return true;
         }
-        public bool Intersects(Rectangle other, out CollisionData collisionData)
+        public bool Intersects(Rectangle other, out CollisionData? collisionData)
         {
             collisionData = null;
 

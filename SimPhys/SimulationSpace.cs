@@ -10,6 +10,12 @@ namespace SimPhys
         public SpaceSettings SpaceSettings;
         
         private readonly PhysicsCaster _caster;
+        
+        //Defined to reduce memory usage
+        private Entity[] _entities;
+        private int _entitiesCount;
+        private CollisionEvent[] _collisions;
+        private int _collisionsCount;
 
         public SimulationSpace(SpaceSettings settings)
         {
@@ -49,10 +55,19 @@ namespace SimPhys
 
             decimal subStepFriction = (decimal)Math.Pow(SpaceSettings.Friction, 1.0f / subSteps);
 
-            var entities = Entities.ToArray();
+            if (_entitiesCount != Entities.Count)
+            {
+                _entitiesCount = Entities.Count;
+                _entities = new Entity[_entitiesCount];
+                _collisions = new CollisionEvent[_entitiesCount];
+            }
+
+            for (int i = 0; i < _entitiesCount; i++) 
+                _entities[i] = Entities[i];
+            
             for (int step = 0; step < subSteps; step++)
             {
-                foreach (var entity in entities)
+                foreach (var entity in _entities)
                 {
                     entity.Step();
                     //Freeze system
@@ -65,17 +80,30 @@ namespace SimPhys
                     entity.Velocity *= subStepFriction; // Apply friction per substep
                     entity.Position += entity.Velocity / subSteps;
                 }
+                
+                _collisionsCount = 0;
 
-                for (int i = 0; i < entities.Length; i++)
+                for (int i = 0; i < _entities.Length; i++)
                 {
-                    for (int j = i + 1; j < entities.Length; j++)
+                    for (int j = i + 1; j < _entities.Length; j++)
                     {
-                        if (entities[i].Intersects(entities[j], out var data))
+                        if (_entities[i].Intersects(_entities[j], out var data))
                         {
-                            entities[i].ResolveCollision(entities[j], data);
-                            entities[i].ForceResolveCollision(entities[j], data);
+                            _collisions[_collisionsCount++] = new CollisionEvent(_entities[i], _entities[j], data!.Value);
                         }
                     }
+                }
+                
+                //Resolution
+                foreach (var collision in _collisions)
+                {
+                    collision.EntityA.ResolveCollision(collision.EntityB, collision.CollisionData);
+                }
+                
+                //Position Correction
+                foreach (var collision in _collisions)
+                {
+                    collision.EntityA.ForceResolveCollision(collision.EntityB, collision.CollisionData);
                 }
             }
         }

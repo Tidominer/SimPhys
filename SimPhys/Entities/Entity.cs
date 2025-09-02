@@ -19,7 +19,7 @@ namespace SimPhys.Entities
         public Action<Entity> OnCollisionStep = delegate { };
         public Action<Entity> OnCollisionExit = delegate { };
 
-        public abstract bool Intersects(Entity other, out CollisionData collisionData);
+        public abstract bool Intersects(Entity other, out CollisionData? collisionData);
         public abstract void ResolveCollision(Entity other, CollisionData collisionData);
         public abstract void ForceResolveCollision(Entity other, CollisionData collisionData);
 

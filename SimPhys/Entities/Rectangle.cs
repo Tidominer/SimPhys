@@ -9,7 +9,7 @@ namespace SimPhys.Entities
         public decimal Height { get; set; } = 1;
         public decimal Rotation { get; set; } // Angle in radians
 
-        public override bool Intersects(Entity other, out CollisionData collisionData)
+        public override bool Intersects(Entity other, out CollisionData? collisionData)
         {
             collisionData = null;
 
@@ -33,11 +33,11 @@ namespace SimPhys.Entities
 
             return intersects;
         }
-        public bool Intersects(Circle other, out CollisionData collisionData)
+        public bool Intersects(Circle other, out CollisionData? collisionData)
         {
             return other.Intersects(this, out collisionData);
         }
-        public bool Intersects(Rectangle other, out CollisionData collisionData)
+        public bool Intersects(Rectangle other, out CollisionData? collisionData)
         {
             collisionData = null;
             Vector2 relativeVelocity = this.Velocity - other.Velocity;
@@ -265,7 +265,7 @@ namespace SimPhys.Entities
         #region Helper Methods for SAT
         
         // Helper method containing the original static SAT logic for overlapping objects.
-        private bool IntersectsStatically(Rectangle other, out CollisionData collisionData)
+        private bool IntersectsStatically(Rectangle other, out CollisionData? collisionData)
         {
             collisionData = null;
             decimal minOverlap = decimal.MaxValue;

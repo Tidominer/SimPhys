@@ -1,10 +1,26 @@
-﻿namespace SimPhys
+﻿using SimPhys.Entities;
+
+namespace SimPhys
 {
-    public class CollisionData
+    public struct CollisionData
     {
         public Vector2 Normal { get; set; } // Collision normal (direction)
         public decimal Time { get; set; }     // Time of impact (0 for current overlap)
         public decimal PenetrationDepth { get; set; } // Depth of penetration for static collisions
+    }
+
+    public readonly struct CollisionEvent
+    {
+        public CollisionEvent(Entity entityA, Entity entityB, CollisionData collisionData)
+        {
+            EntityA = entityA;
+            EntityB = entityB;
+            CollisionData = collisionData;
+        }
+
+        public Entities.Entity EntityA { get; }
+        public Entities.Entity EntityB { get; }
+        public CollisionData CollisionData { get; }
     }
 
     public static class Extensions
