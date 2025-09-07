@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using SimPhys.Entities;
 
@@ -59,7 +59,7 @@ namespace SimPhys
             {
                 _entitiesCount = Entities.Count;
                 _entities = new Entity[_entitiesCount];
-                _collisions = new CollisionEvent[_entitiesCount];
+                _collisions = new CollisionEvent[(_entitiesCount * (_entitiesCount - 1)) / 2];
             }
 
             for (int i = 0; i < _entitiesCount; i++) 
@@ -67,25 +67,11 @@ namespace SimPhys
             
             for (int step = 0; step < subSteps; step++)
             {
-                foreach (var entity in _entities)
-                {
-                    entity.Step();
-                    //Freeze system
-                    if (entity.IsFrozen)
-                    {
-                        entity.Velocity = Vector2.Zero;
-                        continue;
-                    }
-
-                    entity.Velocity *= subStepFriction; // Apply friction per substep
-                    entity.Position += entity.Velocity / subSteps;
-                }
-                
                 _collisionsCount = 0;
 
-                for (int i = 0; i < _entities.Length; i++)
+                for (int i = 0; i < _entitiesCount; i++)
                 {
-                    for (int j = i + 1; j < _entities.Length; j++)
+                    for (int j = i + 1; j < _entitiesCount; j++)
                     {
                         if (_entities[i].Intersects(_entities[j], out var data))
                         {
@@ -95,16 +81,17 @@ namespace SimPhys
                 }
                 
                 //Resolution
-                foreach (var collision in _collisions)
+                for (var i = 0; i < _collisionsCount; i++)
+                    _collisions[i].EntityA.ResolveCollision(_collisions[i].EntityB, _collisions[i].CollisionData);
+
+                foreach (var entity in _entities)
                 {
-                    collision.EntityA.ResolveCollision(collision.EntityB, collision.CollisionData);
+                    entity.Step(subSteps, subStepFriction);
                 }
                 
                 //Position Correction
-                foreach (var collision in _collisions)
-                {
-                    collision.EntityA.ForceResolveCollision(collision.EntityB, collision.CollisionData);
-                }
+                for (var i = 0; i < _collisionsCount; i++)
+                    _collisions[i].EntityA.ForceResolveCollision(_collisions[i].EntityB, _collisions[i].CollisionData);
             }
         }
         

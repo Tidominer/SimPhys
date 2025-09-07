@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace SimPhys.Entities
 {
@@ -254,8 +254,8 @@ namespace SimPhys.Entities
             Vector2 originalOtherPos = other.Position;
 
             // Move to collision time
-            Position += Velocity * time;
-            other.Position += other.Velocity * time;
+            Position += (Velocity * time) / substepCount;
+            other.Position += (other.Velocity * time) / substepCount;
 
             // Compute relative velocity along normal
             Vector2 relativeVelocity = Velocity - other.Velocity;
@@ -292,8 +292,11 @@ namespace SimPhys.Entities
 
             // Apply remaining movement after collision
             decimal remainingTime = 1 - time;
-            Position += Velocity * remainingTime;
-            other.Position += other.Velocity * remainingTime;
+            Position += (Velocity * remainingTime) / substepCount;
+            other.Position += (other.Velocity * remainingTime) / substepCount;
+            
+            hasCollidedThisStep = true;
+            other.hasCollidedThisStep = true;
             
             // Freeze system
             if (IsFrozen)
@@ -321,8 +324,8 @@ namespace SimPhys.Entities
             var otherInvMass = other.IsFrozen ? 0 : other.InverseMass;
             
             decimal t = collisionData.Time;
-            Position += Velocity * t;
-            other.Position += other.Velocity * t;
+            Position += (Velocity * t) / substepCount;
+            other.Position += (other.Velocity * t) / substepCount;
 
             Vector2 relativeVelocity = Velocity - other.Velocity;
             decimal velocityAlongNormal = Vector2.Dot(relativeVelocity, collisionData.Normal);
@@ -347,8 +350,11 @@ namespace SimPhys.Entities
             other.Position -= correction * otherInvMass;
 
             decimal remainingTime = 1 - t;
-            Position += Velocity * remainingTime;
-            other.Position += other.Velocity * remainingTime;
+            Position += (Velocity * remainingTime) / substepCount;
+            other.Position += (other.Velocity * remainingTime) / substepCount;
+            
+            hasCollidedThisStep = true;
+            other.hasCollidedThisStep = true;
             
             // Freeze system
             if (IsFrozen)

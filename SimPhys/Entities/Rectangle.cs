@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 
 namespace SimPhys.Entities
@@ -165,8 +165,8 @@ namespace SimPhys.Entities
             //Vector2 originalOtherVel = other.Velocity;
 
             // Move to collision time
-            Position += Velocity * collisionData.Time;
-            other.Position += other.Velocity * collisionData.Time;
+            Position += (Velocity * collisionData.Time) / substepCount;
+            other.Position += (other.Velocity * collisionData.Time) / substepCount;
 
             // Calculate relative velocity
             Vector2 relativeVelocity = Velocity - other.Velocity;
@@ -205,8 +205,11 @@ namespace SimPhys.Entities
 
             // Apply remaining movement
             decimal remainingTime = 1 - collisionData.Time;
-            Position += Velocity * remainingTime;
-            other.Position += other.Velocity * remainingTime;
+            Position += (Velocity * remainingTime) / substepCount;
+            other.Position += (other.Velocity * remainingTime) / substepCount;
+            
+            hasCollidedThisStep = true;
+            other.hasCollidedThisStep = true;
             
             // Freeze system
             if (IsFrozen)
