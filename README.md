@@ -1,4 +1,4 @@
-# SimPhys - A C# Lightweight Physics Library
+# SimPhys - A C# ~~Lightweight~~ Deterministic Physics Library
 
 ## Overview
 
