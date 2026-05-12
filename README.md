@@ -2,7 +2,7 @@
 
 ## Overview
 
-SimPhys is a lightweight, deterministic physics library designed specifically for use in Unity multiplayer games. The motivation behind SimPhys stems from the non-deterministic nature of Unity's built-in physics engine, which can lead to inconsistencies across different clients in a multiplayer environment. SimPhys aims to provide a consistent and predictable physics simulation, ensuring that all players experience the same game state.
+SimPhys is a ~~lightweight~~, deterministic physics library designed specifically for use in Unity multiplayer games. The motivation behind SimPhys stems from the non-deterministic nature of Unity's built-in physics engine, which can lead to inconsistencies across different clients in a multiplayer environment. SimPhys aims to provide a consistent and predictable physics simulation, ensuring that all players experience the same game state.
 
 While SimPhys was initially created with performance in mind, it currently performs numerous calculations, some of which may be optimized in future releases. This trade-off allows for accurate collision detection and resolution between entities such as circles and rectangles.
 
